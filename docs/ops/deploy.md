@@ -43,19 +43,27 @@ At runtime `node_modules/@bucket/sdk` is a symlink to `vault/sdk`, so the backen
 ## Railway
 
 Railway ignores `docker-compose.yml` and builds only the **last** stage of the Dockerfile, so it
-cannot pass `--target`. Pick the image with a `TARGET` service variable instead: Railway makes
-service variables available to the build and matches them to `ARG` names, and `FROM ${TARGET}` in
-the final stage resolves to the stage you name.
+cannot pass `--target`. Give each service the file whose last stage it wants instead, with
+`RAILWAY_DOCKERFILE_PATH`: `Dockerfile` ends at the backend image, `web.Dockerfile` at the web one.
+
+`Dockerfile` can also be steered with a `TARGET` build variable, which is what `docker build` and
+compose use. Do not rely on it here — a Railway web service with `TARGET=web` still built the backend
+image, and the only visible symptom was pnpm running `next start` against a `web/` directory that had
+a `package.json` but no `node_modules`.
 
 Create four services from this repo, all with the root directory left at `/` (the build needs the
 whole workspace):
 
-| Service | `TARGET` | Start command | Public domain |
+| Service | `RAILWAY_DOCKERFILE_PATH` | Start command | Public domain |
 | --- | --- | --- | --- |
-| api | `backend` | leave empty (uses `CMD`), or `pnpm start` | yes |
-| worker | `backend` | `node dist/src/worker.js`, or `pnpm start:worker` | no |
-| keeper | `backend` | `node dist/src/keeper/main.js`, or `pnpm start:keeper` | no |
-| web | `web` | `node web/server.js`, or leave empty (uses `CMD`) | yes |
+| api | `Dockerfile` | leave empty (uses `CMD`), or `pnpm start` | yes |
+| worker | `Dockerfile` | `node dist/src/worker.js`, or `pnpm start:worker` | no |
+| keeper | `Dockerfile` | `node dist/src/keeper/main.js`, or `pnpm start:keeper` | no |
+| web | `web.Dockerfile` | `node web/server.js`, or leave empty (uses `CMD`) | yes |
+
+`web.Dockerfile` is generated from `Dockerfile` by dropping the `TARGET` selector, so the two never
+diverge by hand: edit `Dockerfile`, and `backend/test/dockerfiles.test.ts` fails until the copy
+matches again.
 
 Use `start:worker` and `start:keeper`, never `pnpm worker` or `pnpm keeper`. Those are the local
 development scripts: they run `tsx` against `src/`, and the image contains neither — only `dist/`,
