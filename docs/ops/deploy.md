@@ -1,10 +1,9 @@
 # Deploying with Docker
 
-Two images from one `Dockerfile` at the repo root:
+One image from the `Dockerfile` at the repo root, carrying the backend and the web app:
 
 ```bash
-docker build --target backend -t bucket-backend .
-docker build --target web     -t bucket-web .
+docker build -t bucket .
 ```
 
 Or the whole stack, Postgres included:
@@ -14,17 +13,24 @@ cp .env.docker.example .env   # fill it in; never commit it
 docker compose up --build
 ```
 
-## One image, three processes
+## One image, four processes
 
-The backend image is a single build with three entry points. All three must run:
+Four entry points, one build. The first three must all run:
 
 | Process | Command | Without it |
 | --- | --- | --- |
-| API | `node dist/src/server.js` (default) | the app has no backend |
-| Worker | `node dist/src/worker.js` | the indexer never runs, so buckets published on chain never appear in the app, and no scheduled job (prices, catalog, performance, leaderboard) runs |
-| Keeper | `node dist/src/keeper/main.js` | mint and redeem orders are never filled; a creator's stake sits unfilled until it expires |
+| API | `node backend/dist/src/server.js` (default) | the app has no backend |
+| Worker | `node backend/dist/src/worker.js` | the indexer never runs, so buckets published on chain never appear in the app, and no scheduled job (prices, catalog, performance, leaderboard) runs |
+| Keeper | `node backend/dist/src/keeper/main.js` | mint and redeem orders are never filled; a creator's stake sits unfilled until it expires |
+| Web | `node web/server.js` | no site |
 
-`docker-compose.yml` runs them as three services off one image. If you deploy on a platform instead, create three services from the same image and override the command on two of them. Only one keeper may run at a time — a Postgres advisory lock enforces it, so a second one idles rather than double-spending.
+It is one image on purpose. A multi-target Dockerfile is a trap on any platform that builds only the
+last stage and cannot pass `--target`: the web service silently ships the backend image, and the only
+symptom is `next: not found` against a `web/` that has a `package.json` but no `node_modules`. One
+image cannot be the wrong one — only the command varies.
+
+`docker-compose.yml` runs all four off that image. Only one keeper may run at a time — a Postgres
+advisory lock enforces it, so a second one idles rather than double-spending.
 
 Migrations run on start, under an advisory lock, so several replicas starting together is safe.
 
@@ -38,47 +44,31 @@ RUN pnpm --filter "@bucket/backend..." build
 
 The image needs no `anchor build`: the SDK ships committed IDL modules at `vault/sdk/src/idl/*.ts`, and `sync-idl.mjs` keeps them when `vault/target/` is absent.
 
-At runtime `node_modules/@bucket/sdk` is a symlink to `vault/sdk`, so the backend image keeps the workspace layout. Copying only `backend/` produces an image that builds and then dies at startup with `ERR_MODULE_NOT_FOUND`.
+At runtime `node_modules/@bucket/sdk` is a symlink to `vault/sdk`, so the image keeps the workspace layout. Copying only `backend/` produces an image that builds and then dies at startup with `ERR_MODULE_NOT_FOUND`. Keeping `pnpm-workspace.yaml` is also what lets `pnpm --filter ... start` work as a start command.
 
 ## Railway
 
-Railway ignores `docker-compose.yml` and builds only the **last** stage of the Dockerfile, so it
-cannot pass `--target`. Give each service the file whose last stage it wants instead, with
-`RAILWAY_DOCKERFILE_PATH`: `Dockerfile` ends at the backend image, `web.Dockerfile` at the web one.
-
-`Dockerfile` can also be steered with a `TARGET` build variable, which is what `docker build` and
-compose use. Do not rely on it here — a Railway web service with `TARGET=web` still built the backend
-image, and the only visible symptom was pnpm running `next start` against a `web/` directory that had
-a `package.json` but no `node_modules`.
+Railway ignores `docker-compose.yml`, and builds the **last stage** of the Dockerfile with no way to
+choose a target. So there is only one stage to build and one image to run: every service uses the
+same image and differs only in its start command. Nothing to select, nothing to mis-select.
 
 Create four services from this repo, all with the root directory left at `/` (the build needs the
-whole workspace):
+whole workspace) and no `TARGET` or `RAILWAY_DOCKERFILE_PATH` variable:
 
-| Service | `RAILWAY_DOCKERFILE_PATH` | Start command | Public domain |
-| --- | --- | --- | --- |
-| api | `Dockerfile` | leave empty (uses `CMD`), or `pnpm start` | yes |
-| worker | `Dockerfile` | `node dist/src/worker.js`, or `pnpm start:worker` | no |
-| keeper | `Dockerfile` | `node dist/src/keeper/main.js`, or `pnpm start:keeper` | no |
-| web | `web.Dockerfile` | `node web/server.js`, or leave empty (uses `CMD`) | yes |
+| Service | Start command | Public domain |
+| --- | --- | --- |
+| api | leave empty (uses `CMD`), or `pnpm --filter @bucket/backend start` | yes |
+| worker | `node backend/dist/src/worker.js` | no |
+| keeper | `node backend/dist/src/keeper/main.js` | no |
+| web | `node web/server.js`, or `pnpm --filter @bucket/web start` | yes |
 
-`web.Dockerfile` is generated from `Dockerfile` by dropping the `TARGET` selector, so the two never
-diverge by hand: edit `Dockerfile`, and `backend/test/dockerfiles.test.ts` fails until the copy
-matches again.
+Both forms work: the image keeps `pnpm-workspace.yaml` and the workspace layout, so pnpm can resolve
+a filter, and the web app's `start` script is rewritten to `node server.js` during the build because
+Next's standalone bundle ships no `next` CLI. Plain `node` is still preferable — it skips pnpm
+entirely.
 
-Use `start:worker` and `start:keeper`, never `pnpm worker` or `pnpm keeper`. Those are the local
-development scripts: they run `tsx` against `src/`, and the image contains neither — only `dist/`,
-and `tsx` is a devDependency the production install leaves out.
-
-**Start the web service with plain `node`, not pnpm.** `pnpm start` is right for the api service,
-whose `start` script is plain `node dist/src/server.js`, which is exactly why this one catches people
-out: the web app's script is `next start`, the Next.js CLI. The image ships Next's standalone output
-instead — a self-contained `web/server.js` plus only the modules the build traced, with no CLI and no
-`node_modules/.bin` — so `next start` fails with `sh: 1: next: not found`.
-
-The web stage rewrites that copied `start` script to `node server.js`, so the script no longer lies.
-Prefer `node web/server.js` anyway: invoking pnpm inside the web image makes corepack fetch
-pnpm 11.0.9 over the network at container start, and `--filter` expects a `pnpm-workspace.yaml` that
-the standalone bundle does not contain.
+Never use `pnpm worker` or `pnpm keeper`. Those are the development scripts: they run `tsx` against
+`src/`, and the image contains neither — only `dist/`, with `tsx` left out of the production install.
 
 Variables, per service — **no `.env` files are involved**; `.dockerignore` keeps them out of the image:
 
@@ -87,22 +77,20 @@ Variables, per service — **no `.env` files are involved**; `.dockerignore` kee
   `PRIVY_WEBHOOK_SECRET`. Keys go only where they are used: `FEE_PAYER_KEYPAIR` on api and keeper,
   `KEEPER_KEYPAIR` on keeper, `PRICE_AUTHORITY_KEYPAIR` on worker. Project-level shared variables
   save repeating the common ones.
-- **web:** `TARGET=web`, the `NEXT_PUBLIC_*` values (consumed at build time, so changing one triggers
-  a rebuild, not just a restart), and `API_URL` for server-side rendering — the api service's
-  internal address, `http://<api-service>.railway.internal:<its port>`.
+- **web:** `API_URL` for server-side rendering — the api service's internal address,
+  `http://<api-service>.railway.internal:<its port>`.
+- **`NEXT_PUBLIC_*` are build-time**, compiled into the bundle. Because one image carries the web app,
+  they must be set on **whichever service builds the image**, and changing one needs a rebuild rather
+  than a restart.
 
-Do **not** set `PORT`. Railway injects it, the backend reads it and already binds `0.0.0.0`, and the
-Next standalone server reads `PORT` with `HOSTNAME=0.0.0.0` set in the image.
+Do **not** set `PORT`. Railway injects it, the backend defaults to 4000 and the Next server to 3000,
+and the image pins neither so the injected value wins. `HOSTNAME=0.0.0.0` is already set, which is
+what makes the Next server listen outside the container.
 
 The Dockerfile deliberately uses no BuildKit cache mounts. Railway rejects any `--mount=type=cache`
-whose id is not `s/<service id>-<target path>`, and forbids variables inside that id, so no single id
-could be valid for four services sharing one file. Layer caching covers the same ground: `pnpm
-install` re-runs only when a manifest or the lockfile changes, because the stage before it copies
-manifests and nothing else.
-
-The worker and keeper listen on no port; that is expected for background services and they need no
-domain. If a service ever starts and exits immediately, set its start command explicitly — that is
-the one thing the `TARGET` indirection depends on inheriting.
+whose id is not `s/<service id>-<target path>`, and forbids variables inside that id. Layer caching
+covers the same ground: `pnpm install` re-runs only when a manifest or the lockfile changes, because
+the stage before it copies manifests and nothing else.
 
 ## Database
 
@@ -137,18 +125,22 @@ base64 -i keys/fee-payer.json    # paste into FEE_PAYER_KEYPAIR
 
 A blank value means the process has no such key, which is fine for a read-only API. A malformed one fails at startup naming the variable, never echoing the value.
 
-## What the web image bakes in
+## What the image bakes in
 
-`NEXT_PUBLIC_*` values are compiled into the bundle, so a web image belongs to one environment. Change one and rebuild:
+`NEXT_PUBLIC_*` values are compiled into the web bundle, so an image belongs to one environment.
+Change one and rebuild:
 
 ```bash
-docker build --target web -t bucket-web \
+docker build -t bucket \
   --build-arg NEXT_PUBLIC_API_URL=https://api.example.com \
   --build-arg NEXT_PUBLIC_SITE_URL=https://example.com \
   --build-arg NEXT_PUBLIC_PRIVY_APP_ID=... .
 ```
 
-`API_URL` is read at runtime instead, for server-side rendering over the internal network (`http://api:4000` in compose). The image uses Next's standalone output, so it carries only traced dependencies and installs nothing at runtime.
+`API_URL` is read at runtime instead, for server-side rendering over the internal network
+(`http://api:4000` in compose). The web app is Next's standalone output: it carries its own traced
+`node_modules`, inlines the config into `server.js`, and changes to its own directory on start, so it
+installs nothing and does not care what the working directory is.
 
 ## Before the first deploy
 

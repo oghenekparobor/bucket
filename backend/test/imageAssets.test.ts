@@ -12,9 +12,9 @@ import { fontsDir, migrationsDir, packageRoot } from '../src/paths.js';
 const repoRoot = join(packageRoot, '..');
 const dockerfile = readFileSync(join(repoRoot, 'Dockerfile'), 'utf8');
 
-/** Source paths the backend stage copies, relative to the build context. */
+/** Source paths the runtime stage copies, relative to the build context. */
 function copiedPaths(): string[] {
-  const stage = dockerfile.split(/^FROM /m).find((s) => s.startsWith('base AS backend')) ?? '';
+  const stage = dockerfile.split(/^FROM /m).find((s) => s.startsWith('base AS runtime')) ?? '';
   return [...stage.matchAll(/^COPY\s+(?:--\S+\s+)*(\S+)\s+(\S+)\s*$/gm)]
     .map((m) => m[1]!)
     .filter((src) => !src.startsWith('/')); // --from=<stage> copies are build output, not context files
@@ -33,10 +33,10 @@ const runtimeFiles = [
   'vault/deployments/devnet.json',
 ];
 
-describe('the backend image carries every file the backend reads at runtime', () => {
+describe('the image carries every file the backend reads at runtime', () => {
   const copied = copiedPaths();
 
-  it('copies something at all (the Dockerfile stage is still parseable)', () => {
+  it('copies something at all (the runtime stage is still parseable)', () => {
     expect(copied.length).toBeGreaterThan(0);
   });
 
@@ -44,7 +44,7 @@ describe('the backend image carries every file the backend reads at runtime', ()
     it(`ships ${file}`, () => {
       expect(existsSync(join(repoRoot, file)), `${file} is missing from the repo`).toBe(true);
       const shipped = copied.some((src) => file === src || file.startsWith(`${src}/`));
-      expect(shipped, `${file} is read at runtime but no COPY in the backend stage brings it into the image`).toBe(true);
+      expect(shipped, `${file} is read at runtime but no COPY in the runtime stage brings it into the image`).toBe(true);
     });
   }
 

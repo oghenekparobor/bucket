@@ -28,4 +28,3 @@ vault/.anchor
 Dockerfile
 .dockerignore
 docker-compose.yml
-web.Dockerfile

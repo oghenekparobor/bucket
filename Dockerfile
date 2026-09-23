@@ -1,16 +1,17 @@
 # syntax=docker/dockerfile:1.7
 #
-# Two images from one file:
-#   docker build --target backend -t bucket-backend .
-#   docker build --target web     -t bucket-web .
+# ONE image, four processes. The api, worker, keeper and web services all run this same image and
+# differ only in the command they start:
 #
-# Railway and other platforms that always build the *last* stage cannot pass --target, so the last
-# stage is selected by a build variable instead: set TARGET=backend or TARGET=web on the service.
-# Declared here, before the first FROM, because only a global ARG can be used in a FROM line.
-ARG TARGET=backend
+#   api     node backend/dist/src/server.js     (or: pnpm --filter @bucket/backend start)
+#   worker  node backend/dist/src/worker.js     (or: pnpm --filter @bucket/backend start:worker)
+#   keeper  node backend/dist/src/keeper/main.js
+#   web     node web/server.js                  (or: pnpm --filter @bucket/web start)
 #
-# The backend image runs all three backend processes — API, worker (indexer + jobs) and keeper —
-# by overriding the command; they are the same build with different entry points. See docs/ops/deploy.md.
+# It is deliberately not split per service. Platforms that build only the last stage of a Dockerfile
+# (Railway) cannot choose a target, so a multi-target file silently ships the wrong image — the web
+# service ran the backend image and failed with "next: not found" against a web/ that had a
+# package.json but no node_modules. One image cannot be the wrong one.
 #
 # `@bucket/sdk` is a workspace package whose types live in its own dist/, so the backend cannot be
 # built on its own: `--filter "@bucket/backend..."` (trailing dots = "and its dependencies") builds
@@ -62,14 +63,16 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
 RUN pnpm --filter "@bucket/backend..." build
 RUN pnpm --filter "@bucket/web" build
 
-# ── backend runtime ─────────────────────────────────────────────────────────────
-# A production-only install of just the backend and the SDK it links to.
+# ── runtime ─────────────────────────────────────────────────────────────────────
+# Production-only install of the backend and the SDK it links to.
 FROM manifests AS backend-deps
 RUN pnpm install --frozen-lockfile --prod --filter "@bucket/backend..."
 
-FROM base AS backend
-ENV NODE_ENV=production PORT=4000
-# node_modules/@bucket/sdk is a symlink to ../../vault/sdk, so vault/sdk must stay where it is.
+FROM base AS runtime
+ENV NODE_ENV=production
+# Backend: node_modules/@bucket/sdk is a symlink to ../../vault/sdk, so vault/sdk must stay put.
+# This also brings package.json and pnpm-workspace.yaml, which is what lets `pnpm --filter ... start`
+# resolve inside the container.
 COPY --from=backend-deps --chown=node:node /app ./
 COPY --from=build --chown=node:node /app/vault/sdk/dist vault/sdk/dist
 COPY --from=build --chown=node:node /app/backend/dist backend/dist
@@ -83,37 +86,24 @@ COPY --chown=node:node backend/migrations backend/migrations
 COPY --chown=node:node backend/assets backend/assets
 COPY --chown=node:node backend/config backend/config
 COPY --chown=node:node vault/deployments vault/deployments
-USER node
-WORKDIR /app/backend
-EXPOSE 4000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-# Override for the other two processes:
-#   worker: node dist/src/worker.js      (indexer + scheduled jobs — without it the app never sees new buckets)
-#   keeper: node dist/src/keeper/main.js (fills mint and redeem orders)
-CMD ["node", "dist/src/server.js"]
 
-# ── web runtime ─────────────────────────────────────────────────────────────────
-# Next's standalone output carries only the traced dependencies, so no node_modules install here.
-# outputFileTracingRoot is the workspace root, so the bundle mirrors the repo: web/server.js.
-FROM base AS web
-ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
-COPY --from=build --chown=node:node /app/web/.next/standalone ./
+# Web: Next's standalone bundle is self-contained — it carries its own node_modules, inlines the
+# config into server.js and chdir's to its own directory — so it drops in over the manifest stub that
+# the dependency stage left at web/. `docs/` sits beside it because the legal pages are read at runtime.
+COPY --from=build --chown=node:node /app/web/.next/standalone/web ./web/
 COPY --from=build --chown=node:node /app/web/.next/static ./web/.next/static
-# Next copies the app's package.json into the bundle, scripts and all, but standalone ships no
-# node_modules/.bin — so its `start` script (`next start`) dies with "next: not found". Point it at
-# the bundled server, so running the script and running the image's CMD do the same thing.
-RUN node -e "const fs=require('fs'),p='web/package.json',j=JSON.parse(fs.readFileSync(p));j.scripts={start:'node server.js'};fs.writeFileSync(p,JSON.stringify(j,null,2))" \
-  && chown node:node web/package.json
-USER node
-EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "web/server.js"]
+COPY --from=build --chown=node:node /app/web/.next/standalone/docs ./docs/
 
-# ── final stage selector ────────────────────────────────────────────────────────
-# Building with no --target lands here and resolves to the stage named by TARGET, so one Dockerfile
-# serves both services on a platform that cannot choose a stage. FROM carries the selected stage's
-# CMD, ENV, USER, EXPOSE and HEALTHCHECK over unchanged. `docker build --target backend|web` still
-# works and bypasses this entirely.
-FROM ${TARGET} AS final
+# Next copies the app's package.json into the bundle, scripts and all, but standalone ships no
+# node_modules/.bin — so its `start` script (`next start`) would die with "next: not found". Point it
+# at the bundled server, and bake in pnpm so starting with it costs no network round trip.
+RUN node -e "const fs=require('fs'),p='web/package.json',j=JSON.parse(fs.readFileSync(p));j.scripts={start:'node server.js'};fs.writeFileSync(p,JSON.stringify(j,null,2))" \
+  && chown node:node web/package.json \
+  && (corepack prepare --activate || echo "corepack prepare skipped; pnpm will be fetched on first use")
+
+USER node
+# PORT is deliberately unset: the platform injects it, the backend defaults to 4000 and the Next
+# server to 3000. HOSTNAME is what makes the Next server listen outside the container.
+ENV HOSTNAME=0.0.0.0
+EXPOSE 3000 4000
+CMD ["node", "backend/dist/src/server.js"]
