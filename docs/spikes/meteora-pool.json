@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-21T20:40:46.184Z",
+  "cluster": "devnet",
+  "program": "DAMM v2 (cp-amm) via @meteora-ag/cp-amm-sdk 1.4.9, createCustomPool (no Meteora config account needed)",
+  "bucketMint": "FueyZ8Q6Q2qnsjWskYGEd9T6t527RjN1FpLeY7QtfEem",
+  "mintAuthorityMovedToPda": "3H43tQJmAwhaMfDa3xBFgPdXTgJoW1swRVhW4gqrxz3Q",
+  "usdcMint": "3YLocm2BA7ost1pizEHrn1vGed39ZFsShVqurAsQXez7",
+  "pool": "APaTMLPTNDtHXdVmLB5ADnU2DmZx2oe9cmRrB3zGvjSa",
+  "poolMatchesDerivedAddress": true,
+  "position": "DWJj8NkNJ1P8JxBvWVscP6ZG9SYizWV5GnKYbWUQvAtP",
+  "seed": {
+    "usd": 1000,
+    "tokens": 10,
+    "usdc": 1000,
+    "fullRange": true,
+    "feeBps": 30,
+    "collectFeeMode": "OnlyB (fees in USDC)"
+  },
+  "createTx": "4hQ8am4u3n5chHPnHF8mnsyvpyWQcyRh67jKavMQvUu6LBGsAvKz4mm66T8rrKC4TXcfPvrJKxS3WDB7rRqvEDsk",
+  "quotes": [
+    {
+      "usdIn": 1,
+      "tokensOut": 0.00996,
+      "effectivePrice": 100.4016,
+      "premiumVsUnitPct": 0.402,
+      "priceImpactPct": null
+    },
+    {
+      "usdIn": 10,
+      "tokensOut": 0.098715,
+      "effectivePrice": 101.3017,
+      "premiumVsUnitPct": 1.302,
+      "priceImpactPct": null
+    },
+    {
+      "usdIn": 100,
+      "tokensOut": 0.90661,
+      "effectivePrice": 110.301,
+      "premiumVsUnitPct": 10.301,
+      "priceImpactPct": null
+    },
+    {
+      "usdIn": 250,
+      "tokensOut": 1.995197,
+      "effectivePrice": 125.3009,
+      "premiumVsUnitPct": 25.301,
+      "priceImpactPct": null
+    }
+  ],
+  "executedSwap": {
+    "usdIn": 10,
+    "tokensOut": 0.098715,
+    "sig": "3JzVJ8D2Beq57oLSnNaRabsgP1k63Mh9WXyiQPPiambPMNFcCxBBmTrzdVtDCj3vf9sa5ogQe2p3Gcv1rJnQQ7hx"
+  },
+  "solSpentIncludingRent": 0.02167
+}

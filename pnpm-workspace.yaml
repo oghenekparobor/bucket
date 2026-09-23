@@ -1,0 +1,18 @@
+packages:
+  - vault/sdk
+  - vault/tests
+  - vault/scripts
+  - backend
+  - web
+
+# Native/binary deps whose install scripts are needed (pnpm 11 blocks scripts by default).
+allowBuilds:
+  '@reown/appkit': true
+  '@resvg/resvg-js': true
+  bigint-buffer: true
+  bufferutil: true
+  esbuild: true
+  keccak: true
+  sharp: true
+  unrs-resolver: true
+  utf-8-validate: true

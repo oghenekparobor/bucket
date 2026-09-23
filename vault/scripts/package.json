@@ -1,0 +1,28 @@
+{
+  "name": "@bucket/vault-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "localnet": "bash ./localnet.sh",
+    "setup": "tsx setup.ts",
+    "setup:devnet": "tsx setup.ts --cluster devnet",
+    "deploy:devnet": "bash ./deploy-devnet.sh",
+    "cli": "tsx cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bucket/sdk": "workspace:*",
+    "@coral-xyz/anchor": "^0.32.1",
+    "@meteora-ag/cp-amm-sdk": "^1.4.9",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
+    "bn.js": "^5.2.5"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/node": "^22.20.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

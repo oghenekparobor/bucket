@@ -1,0 +1,15 @@
+{
+  "name": "bucket",
+  "private": true,
+  "packageManager": "pnpm@11.0.9",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build:program": "cd vault && anchor build",
+    "test:program": "pnpm --filter @bucket/vault-tests test",
+    "build:sdk": "pnpm --filter @bucket/sdk build",
+    "dev:backend": "pnpm --filter @bucket/backend dev",
+    "dev:web": "pnpm --filter @bucket/web dev",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build"
+  }
+}

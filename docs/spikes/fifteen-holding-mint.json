@@ -1,0 +1,38 @@
+{
+  "holdings": 15,
+  "publish": {
+    "vaultAtaTxs": 3,
+    "createBucketTxs": 1,
+    "lookupTableTxs": 3,
+    "lookupTableAddresses": 59
+  },
+  "openMint": {
+    "txs": 1,
+    "computeUnits": 152044
+  },
+  "fillMint": {
+    "txs": 2,
+    "legsPerTx": [
+      8,
+      7
+    ],
+    "computeUnitsPerTx": [
+      508586,
+      462251
+    ]
+  },
+  "mintTotalTxs": 4,
+  "fillMintSingleLegCu": 58786,
+  "failedLeg": {
+    "error": "SlippageExceeded",
+    "effect": "tx reverts; leg budget stays in escrow; keeper or backer closes the order to refund it"
+  },
+  "redeem": {
+    "txs": 1,
+    "computeUnits": 97137
+  },
+  "fillRedeem": {
+    "txs": 15,
+    "computeUnitsLastTx": 56353
+  }
+}

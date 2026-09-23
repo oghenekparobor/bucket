@@ -1,0 +1,22 @@
+[toolchain]
+anchor_version = "0.32.1"
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+bucket_vault = "GwTYDwQh9nCACjBD44EK5qm5QmfWUw1XtF1RfyrigN29"
+mock_swap = "AJGUpUhoiae8c3Kyu9Gk4j8f8E7mpyiMqPSf2w3FNRyx"
+
+[programs.devnet]
+bucket_vault = "GwTYDwQh9nCACjBD44EK5qm5QmfWUw1XtF1RfyrigN29"
+mock_swap = "AJGUpUhoiae8c3Kyu9Gk4j8f8E7mpyiMqPSf2w3FNRyx"
+
+[provider]
+cluster = "devnet"
+wallet = "../keys/deployer.json"
+
+[scripts]
+test = "pnpm --filter @bucket/vault-tests test"

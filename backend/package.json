@@ -1,0 +1,59 @@
+{
+  "name": "@bucket/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bucket API, catalog and price service, indexer, performance and leaderboard jobs, keeper, card renderer",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/src/server.js",
+    "worker": "tsx src/worker.ts",
+    "start:worker": "node dist/src/worker.js",
+    "keeper": "tsx src/keeper/main.ts",
+    "start:keeper": "node dist/src/keeper/main.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "migrate": "tsx src/db/migrate.ts",
+    "rebuild": "tsx scripts/rebuild.ts",
+    "seed:fixtures": "tsx scripts/seedFixtures.ts",
+    "seed:wipe": "tsx scripts/seedFixtures.ts --wipe",
+    "catalog:sync": "tsx scripts/runJob.ts catalog",
+    "prices:sync": "tsx scripts/runJob.ts prices",
+    "perf:run": "tsx scripts/runJob.ts performance",
+    "leaderboard:run": "tsx scripts/runJob.ts leaderboard",
+    "spike:routing": "tsx scripts/spikeRouting.ts",
+    "smoke:localnet": "tsx scripts/smokeLocalnet.ts"
+  },
+  "dependencies": {
+    "@bucket/sdk": "workspace:*",
+    "@coral-xyz/anchor": "^0.32.1",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/rate-limit": "^11.2.0",
+    "@privy-io/server-auth": "^1.32.5",
+    "@resvg/resvg-js": "^2.6.2",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
+    "bn.js": "^5.2.5",
+    "bs58": "^6.0.0",
+    "fastify": "^5.12.5",
+    "pg": "^8.23.0",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4",
+    "satori": "^0.33.4",
+    "tweetnacl": "^1.0.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/node": "^22.20.4",
+    "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.6",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.1"
+  }
+}

@@ -1,0 +1,64 @@
+/*
+ * Bucket design tokens — the single source of truth for color, type and spacing.
+ * Values come from design/Bucket.dc.html. Components reference these variables only.
+ */
+:root {
+  /* Surfaces */
+  --c-page: #efeeea;        /* page background */
+  --c-rail: #e4e2dd;        /* 64px icon rail */
+  --c-nav: #eae8e3;         /* nav column, page header */
+  --c-card: #fcfbf7;        /* cards, modals */
+  --c-sunk: #f5f4ef;        /* quiet panels (position, notices, xStocks badge) */
+  --c-field: #ffffff;       /* text inputs */
+  --c-track: #eae8e3;       /* bar tracks, row dividers */
+  --c-highlight: #f9f7e8;   /* highlighted row (rank #1, chosen route, added token) */
+
+  /* Ink and accent */
+  --c-ink: #1c1c1a;
+  --c-accent: #e8df4a;
+  --c-on-ink: #fcfbf7;
+
+  /* Lines */
+  --c-line: #dcdad4;        /* card borders, table heads */
+  --c-line-strong: #d5d3cd; /* rail / nav borders */
+  --c-line-soft: #eae8e3;   /* row dividers */
+  --c-divider: #cfcdc7;
+  --c-dashed: #c6c4be;
+  --c-scroll: #d2d0ca;
+
+  /* Greys */
+  --c-grey-400: #8b8a85;    /* labels, axis */
+  --c-grey-500: #6b6a66;    /* secondary text */
+  --c-grey-700: #3c3c38;    /* body copy on cards */
+
+  --c-scrim: rgba(28, 28, 26, 0.55);
+
+  /* Type */
+  --font-sans: var(--font-archivo), Archivo, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace;
+  --label-size: 10px;
+  --label-tracking: 0.09em;
+  --label-weight: 600;
+
+  /* Borders: square corners everywhere, 1px ink for primary edges */
+  --radius: 0;
+  --border: 1px solid var(--c-line);
+  --border-ink: 1px solid var(--c-ink);
+  --border-rule: 2px solid var(--c-ink);
+
+  /* Spacing */
+  --gap-xs: 6px;
+  --gap-s: 8px;
+  --gap-m: 12px;
+  --gap-l: 16px;
+  --gap-xl: 24px;
+  --pad-card: 18px;
+  --pad-page-x: 28px;
+
+  /* Layout */
+  --rail-w: 64px;
+  --nav-w: 236px;
+  --gutter-mobile: 16px;
+
+  --focus-ring: 0 0 0 2px var(--c-card), 0 0 0 4px var(--c-ink);
+}

@@ -1,0 +1,137 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOLANA_VERSION: v3.1.6
+  ANCHOR_VERSION: 0.32.1
+  NODE_VERSION: 22
+
+jobs:
+  program:
+    name: program — build, unit tests, LiteSVM integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: vault
+      - name: Install Solana CLI (Agave)
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/${SOLANA_VERSION}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/solana-foundation/anchor avm --locked --force
+          avm install ${ANCHOR_VERSION} && avm use ${ANCHOR_VERSION}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: anchor build
+        working-directory: vault
+        run: |
+          mkdir -p target/deploy
+          # program ids are fixed in declare_id!; CI builds with throwaway keypairs
+          solana-keygen new --no-bip39-passphrase --silent -o target/deploy/bucket_vault-keypair.json
+          solana-keygen new --no-bip39-passphrase --silent -o target/deploy/mock_swap-keypair.json
+          anchor build
+      - name: Rust unit tests (commission math, worked example)
+        working-directory: vault
+        run: cargo test -p bucket_vault --lib
+      - name: SDK build
+        run: pnpm --filter @bucket/sdk build
+      - name: Integration tests (LiteSVM)
+        run: pnpm --filter @bucket/vault-tests test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: programs
+          path: |
+            vault/target/deploy/*.so
+            vault/target/idl/*.json
+
+  backend:
+    name: backend — typecheck, tests, build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bucket
+          POSTGRES_PASSWORD: bucket
+          POSTGRES_DB: bucket_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U bucket" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://bucket:bucket@localhost:5432/bucket_test
+      TEST_DATABASE_URL: postgres://bucket:bucket@localhost:5432/bucket_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @bucket/sdk build
+      - run: pnpm --filter @bucket/backend typecheck
+      - run: pnpm --filter @bucket/backend test
+      - run: pnpm --filter @bucket/backend build
+
+  web:
+    name: web — typecheck, lint, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @bucket/sdk build
+      - run: pnpm --filter @bucket/web typecheck
+      - run: pnpm --filter @bucket/web lint
+      - run: pnpm --filter @bucket/web build
+        env:
+          NEXT_PUBLIC_API_MODE: mock
+
+  preview:
+    name: web preview deploy
+    needs: web
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip when Vercel is not configured
+        if: env.VERCEL_TOKEN == ''
+        run: echo "::notice::Set VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets to enable preview deploys." && exit 0
+      - uses: pnpm/action-setup@v4
+        if: env.VERCEL_TOKEN != ''
+      - uses: actions/setup-node@v4
+        if: env.VERCEL_TOKEN != ''
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Deploy preview
+        if: env.VERCEL_TOKEN != ''
+        run: |
+          npm i -g vercel@latest
+          vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          vercel build --token="$VERCEL_TOKEN"
+          url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")
+          echo "Preview: $url" >> "$GITHUB_STEP_SUMMARY"
