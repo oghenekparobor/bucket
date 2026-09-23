@@ -100,6 +100,11 @@ FROM base AS web
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app/web/.next/standalone ./
 COPY --from=build --chown=node:node /app/web/.next/static ./web/.next/static
+# Next copies the app's package.json into the bundle, scripts and all, but standalone ships no
+# node_modules/.bin — so its `start` script (`next start`) dies with "next: not found". Point it at
+# the bundled server, so running the script and running the image's CMD do the same thing.
+RUN node -e "const fs=require('fs'),p='web/package.json',j=JSON.parse(fs.readFileSync(p));j.scripts={start:'node server.js'};fs.writeFileSync(p,JSON.stringify(j,null,2))" \
+  && chown node:node web/package.json
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

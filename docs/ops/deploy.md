@@ -55,11 +55,22 @@ whole workspace):
 | api | `backend` | leave empty (uses `CMD`), or `pnpm start` | yes |
 | worker | `backend` | `node dist/src/worker.js`, or `pnpm start:worker` | no |
 | keeper | `backend` | `node dist/src/keeper/main.js`, or `pnpm start:keeper` | no |
-| web | `web` | leave empty (uses `CMD`) | yes |
+| web | `web` | `node web/server.js`, or leave empty (uses `CMD`) | yes |
 
 Use `start:worker` and `start:keeper`, never `pnpm worker` or `pnpm keeper`. Those are the local
 development scripts: they run `tsx` against `src/`, and the image contains neither — only `dist/`,
 and `tsx` is a devDependency the production install leaves out.
+
+**Start the web service with plain `node`, not pnpm.** `pnpm start` is right for the api service,
+whose `start` script is plain `node dist/src/server.js`, which is exactly why this one catches people
+out: the web app's script is `next start`, the Next.js CLI. The image ships Next's standalone output
+instead — a self-contained `web/server.js` plus only the modules the build traced, with no CLI and no
+`node_modules/.bin` — so `next start` fails with `sh: 1: next: not found`.
+
+The web stage rewrites that copied `start` script to `node server.js`, so the script no longer lies.
+Prefer `node web/server.js` anyway: invoking pnpm inside the web image makes corepack fetch
+pnpm 11.0.9 over the network at container start, and `--filter` expects a `pnpm-workspace.yaml` that
+the standalone bundle does not contain.
 
 Variables, per service — **no `.env` files are involved**; `.dockerignore` keeps them out of the image:
 
