@@ -10,12 +10,30 @@ Every product number below is a field in the on-chain `Config` (`update_config`,
 | --- | --- | --- |
 | Commission split: does the platform keep 20% of the creator's 20%? | Yes: `platform_share_bps = 2000` (spec assumption; the design shows "Platform share of that: 20%") | `Config.params` |
 | 0.20% fee on mints and redeems | Mint fee 0.20% (`mint_fee_bps = 20`). **Redeem fee 0** (`redeem_fee_bps = 0`), because the spec's P0 acceptance criteria say "no exit fee" and the design shows "Exit fee: none", while the platform-revenue section proposes 0.20% on redeems. These contradict each other. Pick one. | `Config.params` |
-| Who seeds each bucket's Meteora pool, and how much | Not decided; pools not built (phase 2.2) | – |
-| Smallest amount that mints through the vault (below it, route to the pool) | Not decided. Program minimum is $1, and every leg ≥ 1 cent fills (tested down to a 2-cent leg). The venue's minimum tradeable size per token is in `spikes/catalog-and-routing.md` | backend quote routing |
+| ~~Who seeds each bucket's Meteora pool, and how much~~ | **Closed 23 Sep 2026: no pools at launch**, so nobody seeds one. Rationale and the conditions for revisiting are in "Taken: product" below | – |
+| Smallest amount that mints through the vault (below it, route to the pool) | Moot at launch (no pools). Reopens per bucket if one is ever seeded. Program minimum is $1, and every leg ≥ 1 cent fills (tested down to a 2-cent leg). The venue's minimum tradeable size per token is in `spikes/catalog-and-routing.md` | backend quote routing |
 | Weight caps 50% public / 25% pre-IPO | As spec | `Config.params` |
 | Linked X required for the leaderboard? | Not required; verified badge shown when linked | backend leaderboard job |
 | Fee sponsorship policy | Sponsor every transaction (Bucket fee payer), no cap yet | backend `FEE_SPONSOR_*` |
 | Launch jurisdictions, licence, commission legality, issuer terms | Open; counsel not engaged. See `legal/` drafts, which are **not reviewed** | – |
+
+## Taken: product
+
+**P1. No Meteora pools at launch (23 Sep 2026).** Buckets ship with mint and redeem through the vault only. The pool route stays unbuilt, and the tickets that depend on it (BKT-022, 025, 030, 031, 044) are deferred by decision rather than unfinished.
+
+Why:
+
+- **A pool bypasses the geo-restrictions the issuers require.** `legal/geo-restrictions.md` builds a strictest-of block list from Backed, PreStocks and Tessera, and defines blocked as "no mint, no pool swap through the app, no bucket creation". A public pool is reachable from Jupiter and every other aggregator, not just the app, and the bucket token has no freeze authority, so a pool would be a permanent, unblockable buy door for exactly the jurisdictions the issuer terms exclude — before counsel has reviewed the draft.
+- **The liquidity does not exist at this size.** `spikes/meteora-pool.md` measured that a bucket needs **$10k–$20k per side** before a $100 buy costs under 1%. The creator minimum stake is $25. Below that depth, minting is cheaper for anything above a few dollars, so the pool would mostly serve worse prices.
+- **A thin pool would become the public price.** Aggregators and wallets would quote pool price, not unit price. On a ~$2k pool a single $100 buy moves it ~10%. The app's cheaper-of-two-routes logic (`api/quote.ts`) protects Bucket's own users, not everyone reading a price feed.
+- **Holding the peg needs an active market maker.** Mint and redeem fill leg by leg through the keeper, so arbitrage carries time and price risk. The spike already assigns that job to the platform at launch; it is an operational commitment, not a side effect.
+- **Exits do not need a pool.** Engineering decision 4 below: redeem never depends on the keeper, API, creator or pool. Exit liquidity is already guaranteed by the program.
+
+What a pool would add is discoverability and composability. Both are real, and both are premature while the price it advertises would be wrong.
+
+**Revisit per bucket, not platform-wide**, once all of: TVL makes $10k–$20k a side proportionate; there is real demand for trades too small to mint; a funded market-making wallet runs liquidity concentrated around unit price and moves it as unit price moves (the spike measured several-fold less impact for the same seed); counsel has ruled on the geo bypass; and BKT-058 has shipped.
+
+Note that this decision does not stop a third party from opening a pool for a bucket token — nothing can, since the token is transferable with no freeze authority. BKT-059 covers noticing when that happens.
 
 ## Taken: engineering (Program + Backend)
 

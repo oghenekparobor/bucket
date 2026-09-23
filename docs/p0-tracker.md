@@ -110,10 +110,19 @@ Checklist 0.4: *Turn the spec's P0 acceptance criteria into tracked tickets, one
 | BKT-056 | PnL card: bucket, creator, period, % return, QR + short link | ✅ | Web card + backend renderer (`cards.test.ts`); real QR. |
 | BKT-057 | Save as image or share to X/WhatsApp/Telegram; dollars only when switched on | ✅ | Save produced a PNG (mock); dollar toggle off by default. |
 
+## Follow-ups raised while building
+
+Not P0 checkboxes, so they sit outside the count below. IDs continue the same sequence so they stay stable on import.
+
+| ID | Item | Status | Why / what's needed |
+| --- | --- | --- | --- |
+| BKT-058 | Count positions from token accounts, not only from program events | ⬜ | A bucket token is a classic SPL mint, freely transferable, no freeze authority, so tokens can change hands without the program ever seeing it. `positions` is projected purely from events (`MintFilled`, `Redeemed`, `CommissionSettled`), so a holder who received tokens by a plain wallet transfer — or by a DEX swap, if a pool ever exists — is invisible: absent from the holder count, from portfolios, and from creator attribution. On redeem nothing corrupts (`applyRedeem` clamps at the known balance, `perf/costBasis.ts:62`), but their cost basis is 0, so the app reports the whole proceeds as gain. Reconcile balances from token accounts against `positions`, and decide how an off-platform balance enters the books — proposed: record it when first seen with a zero basis, flagged as acquired off Bucket, so P&L is not shown as pure profit. |
+| BKT-059 | Notice a third-party pool for a bucket token | ⬜ | Anyone can open a pool for a bucket token without Bucket; nothing can prevent it (no freeze authority, no transfer restrictions), and the decision not to seed pools does not change that. `JupiterPoolPriceSource.price()` returns null unless `buckets.pool_address` is set (`jobs/poolMonitor.ts`), so a stranger's pool quoting a wrong price would go unseen. Query Jupiter price by mint unconditionally, record it in `pool_prices` with its source, alert on the existing rule (gap above 1% for over an hour), and say on the bucket page that unit price is the canonical one. |
+
 ## Summary
 
 42 ✅ · 4 🟡 · 7 🔶 · 3 ⛔ · 1 ⬜ of 57.
 
 - **Blocked on accounts:** the Privy app (BKT-001, 002, 008, and parts of 004 and 007) and the domain (BKT-052).
-- **Waiting on Meteora pools** (checklist 2.2): BKT-022, 025, 030, 031, 044.
+- **Deferred by decision, not unfinished:** BKT-022, 025, 030, 031, 044 all wait on Meteora pools, and `decisions.md` → "Taken: product" P1 rules out pools at launch. Revisit per bucket against the conditions listed there.
 - **Still to run end to end:** the rebalance keeper (BKT-040), eligibility enforcement (BKT-050), preview cards in real apps (BKT-054).

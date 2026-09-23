@@ -1,0 +1,30 @@
+# Keep the build context small and secret-free. Everything here is either rebuilt inside the image
+# or must never enter one. Without this, the context is >12GB (test-ledger alone is 5.5GB) and Next's
+# standalone output would copy a real .env into the image.
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/*.tsbuildinfo
+
+# Secrets: role keypairs are passed as environment variables (see docs/ops/deploy.md), never baked in.
+keys
+**/keys/*.json
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+
+# Anchor and validator artifacts: the SDK ships committed IDL modules, so none of this is needed.
+vault/target
+vault/test-ledger
+vault/.anchor
+
+*.log
+.DS_Store
+Dockerfile
+.dockerignore
+docker-compose.yml

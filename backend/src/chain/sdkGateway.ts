@@ -119,7 +119,11 @@ export class SdkChainGateway implements ChainGateway {
 
   private key(role: keyof SdkGatewayOptions['keys']): Keypair {
     const k = this.o.keys[role];
-    if (!k) throw new ChainUnavailableError(`No ${role} keypair configured (set ${role === 'feePayer' ? 'FEE_PAYER' : role === 'keeper' ? 'KEEPER' : 'PRICE_AUTHORITY'}_KEYPAIR_PATH)`);
+    if (!k) {
+      const name = role === 'feePayer' ? 'FEE_PAYER' : role === 'keeper' ? 'KEEPER' : 'PRICE_AUTHORITY';
+      // Names the secret form first: a deployment has no keys/ directory to point a path at.
+      throw new ChainUnavailableError(`No ${role} keypair configured (set ${name}_KEYPAIR, or ${name}_KEYPAIR_PATH for a local keypair file)`);
+    }
     return k;
   }
 

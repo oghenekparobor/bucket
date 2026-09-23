@@ -1,0 +1,110 @@
+# The whole stack: Postgres, all three backend processes, and the web app.
+#
+#   cp .env.docker.example .env && docker compose up --build
+#
+# The worker and keeper are separate services on purpose. Without the worker the indexer never runs,
+# so buckets published on chain never appear in the app; without the keeper, mint and redeem orders
+# are never filled. See docs/ops/runbooks.md §7.
+name: bucket
+
+# Shared by api, worker and keeper — they are one image with three entry points.
+x-backend-env: &backend-env
+  NODE_ENV: production
+  # The backend's real input. Point it at a managed Postgres in production; the bundled `db` service
+  # below is only for local and staging use, and is ignored when this points elsewhere.
+  DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env (copy .env.docker.example)}
+  CLUSTER: ${CLUSTER:-devnet}
+  RPC_URL: ${RPC_URL:-}
+  WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+  PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
+  # Role keys as secrets, not files: a Solana CLI JSON array or the same bytes base64-encoded.
+  FEE_PAYER_KEYPAIR: ${FEE_PAYER_KEYPAIR:-}
+  KEEPER_KEYPAIR: ${KEEPER_KEYPAIR:-}
+  PRICE_AUTHORITY_KEYPAIR: ${PRICE_AUTHORITY_KEYPAIR:-}
+  PRIVY_APP_ID: ${PRIVY_APP_ID:-}
+  PRIVY_APP_SECRET: ${PRIVY_APP_SECRET:-}
+  PRIVY_WEBHOOK_SECRET: ${PRIVY_WEBHOOK_SECRET:-}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bucket
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bucket}
+      POSTGRES_DB: bucket
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bucket -d bucket']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Builds the backend image the worker and keeper reuse. Migrations run on start.
+  api:
+    build:
+      context: .
+      target: backend
+    image: bucket-backend:local
+    environment: *backend-env
+    ports:
+      - '${API_PORT:-4000}:4000'
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: bucket-backend:local
+    command: ['node', 'dist/src/worker.js']
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  keeper:
+    image: bucket-backend:local
+    command: ['node', 'dist/src/keeper/main.js']
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+      # NEXT_PUBLIC_* are compiled into the bundle, so changing one needs a rebuild, not a restart.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_API_MODE: ${NEXT_PUBLIC_API_MODE:-auto}
+        NEXT_PUBLIC_PRIVY_APP_ID: ${NEXT_PUBLIC_PRIVY_APP_ID:-}
+        NEXT_PUBLIC_PRIVY_CLIENT_ID: ${NEXT_PUBLIC_PRIVY_CLIENT_ID:-}
+        NEXT_PUBLIC_SOLANA_CLUSTER: ${NEXT_PUBLIC_SOLANA_CLUSTER:-devnet}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_ENABLE_CARD_FUNDING: ${NEXT_PUBLIC_ENABLE_CARD_FUNDING:-false}
+        NEXT_PUBLIC_USDC_MINT: ${NEXT_PUBLIC_USDC_MINT:-}
+    image: bucket-web:local
+    environment:
+      # Server-side rendering talks to the API over the compose network; the browser uses the public URL.
+      API_URL: http://api:4000
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:

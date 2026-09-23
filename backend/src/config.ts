@@ -72,7 +72,11 @@ const schema = z.object({
   EMAIL_FROM: z.string().default('Bucket <notifications@bucket.xyz>'),
   TELEGRAM_BOT_TOKEN: optionalString,
 
-  // Default to the repo's keys/ directory (gitignored) when the files exist.
+  // Each role key is either inline (the secret itself, for containers and secret managers) or a file
+  // path. Inline wins; the paths default to the repo's keys/ directory (gitignored) when it exists.
+  KEEPER_KEYPAIR: optionalString,
+  FEE_PAYER_KEYPAIR: optionalString,
+  PRICE_AUTHORITY_KEYPAIR: optionalString,
   KEEPER_KEYPAIR_PATH: optionalString,
   FEE_PAYER_KEYPAIR_PATH: optionalString,
   PRICE_AUTHORITY_KEYPAIR_PATH: optionalString,

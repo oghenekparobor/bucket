@@ -1,7 +1,7 @@
 /** Keeper process entry point: `pnpm --filter @bucket/backend keeper`. */
 import { Alerter } from '../alerts.js';
 import { createGateway } from '../chain/index.js';
-import { loadKeypair } from '../chain/keys.js';
+import { resolveKeypair } from '../chain/keys.js';
 import { config } from '../config.js';
 import { migrate } from '../db/migrate.js';
 import { createPool } from '../db/pool.js';
@@ -22,8 +22,8 @@ const keeper = new Keeper({
   log,
   cfg: config,
   wallets: {
-    keeper: config.KEEPER_KEYPAIR_PATH ? loadKeypair(config.KEEPER_KEYPAIR_PATH).publicKey.toBase58() : null,
-    feePayer: config.FEE_PAYER_KEYPAIR_PATH ? loadKeypair(config.FEE_PAYER_KEYPAIR_PATH).publicKey.toBase58() : null,
+    keeper: resolveKeypair(config.KEEPER_KEYPAIR, config.KEEPER_KEYPAIR_PATH, 'KEEPER')?.publicKey.toBase58() ?? null,
+    feePayer: resolveKeypair(config.FEE_PAYER_KEYPAIR, config.FEE_PAYER_KEYPAIR_PATH, 'FEE_PAYER')?.publicKey.toBase58() ?? null,
   },
 });
 
