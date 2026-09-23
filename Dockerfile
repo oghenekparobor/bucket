@@ -73,10 +73,15 @@ ENV NODE_ENV=production PORT=4000
 COPY --from=backend-deps --chown=node:node /app ./
 COPY --from=build --chown=node:node /app/vault/sdk/dist vault/sdk/dist
 COPY --from=build --chown=node:node /app/backend/dist backend/dist
-# Read at runtime: migrations by db/migrate.ts, fonts by the PnL card renderer, and the deployment
-# file (program ids, USDC mint) that config.ts resolves at <repo>/vault/deployments/<cluster>.json.
+# Read at runtime, all resolved from the package root by paths.ts, so they must sit beside dist/:
+#   migrations/       db/migrate.ts, on every start
+#   assets/fonts/     the PnL card renderer
+#   config/           geo-restrictions.json (api/geo.ts, read while the app is built) and
+#                     issuer-events.json (catalog/issuerEvents.ts)
+# and one level up, the deployment file config.ts reads at vault/deployments/<cluster>.json.
 COPY --chown=node:node backend/migrations backend/migrations
 COPY --chown=node:node backend/assets backend/assets
+COPY --chown=node:node backend/config backend/config
 COPY --chown=node:node vault/deployments vault/deployments
 USER node
 WORKDIR /app/backend

@@ -52,10 +52,14 @@ whole workspace):
 
 | Service | `TARGET` | Start command | Public domain |
 | --- | --- | --- | --- |
-| api | `backend` | leave empty (uses `CMD`) | yes |
-| worker | `backend` | `node dist/src/worker.js` | no |
-| keeper | `backend` | `node dist/src/keeper/main.js` | no |
+| api | `backend` | leave empty (uses `CMD`), or `pnpm start` | yes |
+| worker | `backend` | `node dist/src/worker.js`, or `pnpm start:worker` | no |
+| keeper | `backend` | `node dist/src/keeper/main.js`, or `pnpm start:keeper` | no |
 | web | `web` | leave empty (uses `CMD`) | yes |
+
+Use `start:worker` and `start:keeper`, never `pnpm worker` or `pnpm keeper`. Those are the local
+development scripts: they run `tsx` against `src/`, and the image contains neither — only `dist/`,
+and `tsx` is a devDependency the production install leaves out.
 
 Variables, per service — **no `.env` files are involved**; `.dockerignore` keeps them out of the image:
 
