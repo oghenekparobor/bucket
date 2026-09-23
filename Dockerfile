@@ -33,7 +33,10 @@ COPY vault/tests/package.json vault/tests/
 COPY vault/scripts/package.json vault/scripts/
 
 FROM manifests AS deps
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+# No --mount=type=cache here: Railway requires cache mount ids to be `s/<service id>-<path>` and
+# forbids variables in them, so no single id can be valid for the four services sharing this file.
+# Layer caching still does the real work — this step only re-runs when a manifest or the lockfile changes.
+RUN pnpm install --frozen-lockfile
 
 # ── build ───────────────────────────────────────────────────────────────────────
 FROM deps AS build
@@ -62,7 +65,7 @@ RUN pnpm --filter "@bucket/web" build
 # ── backend runtime ─────────────────────────────────────────────────────────────
 # A production-only install of just the backend and the SDK it links to.
 FROM manifests AS backend-deps
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --prod --filter "@bucket/backend..."
+RUN pnpm install --frozen-lockfile --prod --filter "@bucket/backend..."
 
 FROM base AS backend
 ENV NODE_ENV=production PORT=4000

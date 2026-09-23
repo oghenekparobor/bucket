@@ -71,6 +71,12 @@ Variables, per service — **no `.env` files are involved**; `.dockerignore` kee
 Do **not** set `PORT`. Railway injects it, the backend reads it and already binds `0.0.0.0`, and the
 Next standalone server reads `PORT` with `HOSTNAME=0.0.0.0` set in the image.
 
+The Dockerfile deliberately uses no BuildKit cache mounts. Railway rejects any `--mount=type=cache`
+whose id is not `s/<service id>-<target path>`, and forbids variables inside that id, so no single id
+could be valid for four services sharing one file. Layer caching covers the same ground: `pnpm
+install` re-runs only when a manifest or the lockfile changes, because the stage before it copies
+manifests and nothing else.
+
 The worker and keeper listen on no port; that is expected for background services and they need no
 domain. If a service ever starts and exits immediately, set its start command explicitly — that is
 the one thing the `TARGET` indirection depends on inheriting.
