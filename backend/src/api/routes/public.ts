@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { webOrigins } from '../../config.js';
 import { deriveSymbol, truncateName } from '@bucket/sdk';
 import { chartStepMs } from '../../perf/metrics.js';
 import { big, roundPct, usdToE6 } from '../../util/money.js';
@@ -23,7 +24,15 @@ export function registerPublicRoutes(app: FastifyInstance, ctx: AppContext): voi
       db.query(`SELECT finished_at FROM job_runs WHERE job = 'catalog' AND ok ORDER BY finished_at DESC LIMIT 1`),
       db.query('SELECT 1').then(() => true).catch(() => false),
     ]);
-    return { ok: db_ok, cluster: cfg.CLUSTER, programId: cfg.PROGRAM_ID, lastSync: sync.rows[0]?.finished_at?.toISOString() ?? null };
+    return {
+      ok: db_ok,
+      cluster: cfg.CLUSTER,
+      programId: cfg.PROGRAM_ID,
+      lastSync: sync.rows[0]?.finished_at?.toISOString() ?? null,
+      // The browser origins this API answers CORS for. Not a secret (a matching browser sees it in
+      // the response header anyway), and the fastest way to see why the app is getting CORS errors.
+      corsOrigins: webOrigins(cfg),
+    };
   });
 
   app.get('/v1/catalog', async (req) => {

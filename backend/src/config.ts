@@ -131,4 +131,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   };
 }
 
+/**
+ * Browser origins the API answers CORS for. Trimmed, empties dropped, trailing slashes removed: a
+ * value pasted from an address bar ends in a slash, and an Origin header never does, so
+ * `https://app.example.com/` would silently match nothing.
+ */
+export function webOrigins(c: Pick<Config, 'WEB_ORIGIN'>): string[] {
+  return c.WEB_ORIGIN.split(',')
+    .map((o) => o.trim().replace(/\/+$/, ''))
+    .filter((o) => o.length > 0);
+}
+
 export const config: Config = loadConfig();

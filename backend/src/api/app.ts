@@ -8,7 +8,7 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyRequ
 import type { ChainGateway } from '../chain/gateway.js';
 import { ChainUnavailableError } from '../chain/gateway.js';
 import { TxFailedError, TxRejectedError } from '../chain/sdkGateway.js';
-import { type Config, config as defaultConfig } from '../config.js';
+import { type Config, config as defaultConfig, webOrigins } from '../config.js';
 import type { Db } from '../db/pool.js';
 import { logger } from '../logger.js';
 import type { AuthUser, Authenticator } from './auth.js';
@@ -49,7 +49,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app: FastifyInstance = Fastify({ loggerInstance: logger as FastifyBaseLogger, trustProxy: true, bodyLimit: 256 * 1024 });
 
   await app.register(cors, {
-    origin: cfg.WEB_ORIGIN.split(',').map((o) => o.trim()),
+    origin: webOrigins(cfg),
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['authorization', 'content-type', 'x-bucket-wallet'],
     maxAge: 600,
