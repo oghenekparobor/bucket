@@ -8,7 +8,7 @@
   },
   "openMint": {
     "txs": 1,
-    "computeUnits": 159544
+    "computeUnits": 134050
   },
   "fillMint": {
     "txs": 2,
@@ -17,22 +17,22 @@
       7
     ],
     "computeUnitsPerTx": [
-      526586,
-      460751
+      489134,
+      430793
     ]
   },
   "mintTotalTxs": 4,
-  "fillMintSingleLegCu": 57286,
+  "fillMintSingleLegCu": 60292,
   "failedLeg": {
     "error": "SlippageExceeded",
     "effect": "tx reverts; leg budget stays in escrow; keeper or backer closes the order to refund it"
   },
   "redeem": {
     "txs": 1,
-    "computeUnits": 92637
+    "computeUnits": 88143
   },
   "fillRedeem": {
     "txs": 15,
-    "computeUnitsLastTx": 51853
+    "computeUnitsLastTx": 53359
   }
 }

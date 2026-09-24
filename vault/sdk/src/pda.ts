@@ -1,7 +1,7 @@
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 
-import { BUCKET_VAULT_PROGRAM_ID, MOCK_SWAP_PROGRAM_ID, SEEDS, TOKEN_PROGRAM_ID } from './constants.js';
+import { BUCKET_VAULT_PROGRAM_ID, MOCK_SWAP_PROGRAM_ID, SEEDS, TOKEN_METADATA_PROGRAM_ID, TOKEN_PROGRAM_ID } from './constants.js';
 
 const u32le = (n: number) => {
   const b = Buffer.alloc(4);
@@ -34,6 +34,10 @@ export class Pdas {
   /** Vault token account of a holding: the bucket PDA's ATA under the mint's token program. */
   vault = (bucket: PublicKey, mint: PublicKey, tokenProgram: PublicKey) =>
     getAssociatedTokenAddressSync(mint, bucket, true, tokenProgram);
+  /** Metaplex metadata account of a mint. Owned by the Token Metadata program, not by bucket_vault. */
+  metadata = (mint: PublicKey) =>
+    find([Buffer.from('metadata'), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()], TOKEN_METADATA_PROGRAM_ID);
+
   /** USDC escrow of a mint order. */
   escrow = (order: PublicKey, usdcMint: PublicKey) => getAssociatedTokenAddressSync(usdcMint, order, true, TOKEN_PROGRAM_ID);
 }

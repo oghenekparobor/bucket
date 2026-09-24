@@ -9,6 +9,7 @@ import { logger } from '../logger.js';
 import { channelsFromConfig } from '../notify/channels.js';
 import { dispatchPending } from '../notify/dispatcher.js';
 import { pushPrices } from '../prices/pricePusher.js';
+import { runTokenMetadata } from './tokenMetadata.js';
 import { prunePrivyWebhooks } from '../privy/webhooks.js';
 import { runCatalogSync, runPriceSync } from './catalogSync.js';
 import { runDeadlineAlerts } from './deadlineAlerts.js';
@@ -48,6 +49,8 @@ export const JOBS: Record<string, JobFn> = {
   notifications: (db) => dispatchPending(db, channelsFromConfig(config, logger), { publicWebUrl: config.PUBLIC_WEB_URL }),
   // update_price for every allow-listed mint (off mainnet: mirrored into mock mints and mock_swap markets).
   'price-push': (db) => pushPrices(db, createGateway(config, db), config.deployment),
+  // Bucket tokens with no Metaplex metadata show as unknown tokens in wallets; signs as keeper.
+  'token-metadata': (db) => runTokenMetadata(db, createGateway(config, db)),
   // Webhook payloads are kept only for debugging.
   'privy-webhook-prune': (db) => prunePrivyWebhooks(db).then((deleted) => ({ deleted })),
 };

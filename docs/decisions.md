@@ -62,4 +62,21 @@ Note that this decision does not stop a third party from opening a pool for a bu
 
 9. **Edits:** new vault token accounts are created in the creator's `propose_edit` transaction, with the creator as payer (checklist: "charge the creator the rent"). Holdings an edit removes stay as zero-weight entries until the keeper has sold them down; `rebalance` or `settle_commission` prunes them once empty. Rebalances must go from an over-weight to an under-weight holding, sized within the excess, against the vault value from the last settlement (at most 1 hour old).
 
-10. **Program size.** `bucket_vault.so` is ~890 KB (≈6.3 SOL rent). An `opt-level = "s"` build saved only 13% and cost ~50% more compute, so we kept the default.
+10. **Program size.** `bucket_vault.so` is ~979 KB (≈6.8 SOL rent), up from ~890 KB when Metaplex metadata support was linked in. An `opt-level = "s"` build saved only 13% and cost ~50% more compute, so we kept the default. A program account is sized at its first deploy, so an upgrade past that size needs `solana program extend` first — see `ops/deploy.md`.
+
+11. **Bucket tokens carry Metaplex metadata (23 Sep 2026).** Without it every bucket token is an
+   unknown token in wallets, explorers and DEX listings — no name, no ticker, no image. The mint
+   authority is the bucket PDA and Metaplex requires the mint authority to sign, so this can only be
+   done by the program: `create_token_metadata` / `update_token_metadata`, with the bucket PDA kept
+   as update authority so nobody can rewrite a bucket's identity outside the program.
+   - **The ticker is derived from the name** (letters and digits, uppercased, 10 max: "Tokenized
+     SP500" → TOKENIZEDS), rather than adding a `symbol` field to the `Bucket` account. It avoids an
+     on-chain state change and a new create-form field; the cost is that two similarly named buckets
+     can share a ticker. Revisit if creators ask for their own. The rule lives in `metadata.rs` and
+     is mirrored in the SDK as `deriveSymbol`, with one shared set of test cases.
+   - **The `uri` is served by the API** (`/v1/buckets/<address>/token.json`), not uploaded to
+     Arweave, so a rename shows up without a chain write. The on-chain name and ticker still stand on
+     their own if the API is unreachable.
+   - **The keeper may also sign it.** The metadata transaction is last in the publish batch and can
+     expire; the `token-metadata` job then backfills it without the creator coming back. The keeper
+     could already act for every bucket, and metadata moves no funds.

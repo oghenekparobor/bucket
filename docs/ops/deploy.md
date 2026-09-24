@@ -142,6 +142,22 @@ docker build -t bucket \
 `node_modules`, inlines the config into `server.js`, and changes to its own directory on start, so it
 installs nothing and does not care what the working directory is.
 
+## Upgrading the program
+
+The program account's size is fixed at its first deploy, and the binary grew when Metaplex metadata
+support was added (908KB → 979KB). An upgrade that no longer fits fails in a way that does not name
+the cause, so check first:
+
+```bash
+solana program show <program id> --url devnet     # "Data Length" is the capacity
+ls -l vault/target/deploy/bucket_vault.so         # must be smaller than that
+solana program extend <program id> <extra bytes> --url devnet
+```
+
+Then `anchor deploy --provider.cluster devnet`. After any upgrade that adds an instruction, run the
+`token-metadata` job once so buckets published before it get their metadata:
+`pnpm --filter @bucket/backend exec tsx scripts/runJob.ts token-metadata`.
+
 ## Before the first deploy
 
 - Point `RPC_URL` at a dedicated endpoint. The public Solana RPC rate-limits (429) hard enough to stall indexing and fills — we hit this on devnet.

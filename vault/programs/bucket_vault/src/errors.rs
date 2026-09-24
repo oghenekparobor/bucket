@@ -86,4 +86,6 @@ pub enum VaultError {
     VaultAccount,
     #[msg("Arithmetic overflow")]
     MathOverflow,
+    #[msg("Metadata URI is empty or longer than 200 characters")]
+    UriLength,
 }

@@ -92,6 +92,22 @@ describe('public reads', () => {
     expect((await get('/v1/buckets/does-not-exist')).statusCode).toBe(404);
   });
 
+  it('GET /v1/buckets/:slugOrAddress/token.json serves the off-chain half of the token metadata', async () => {
+    // Wallets fetch this from the `uri` stored on chain; without it a bucket token has no
+    // description or image anywhere it is displayed.
+    const res = await get('/v1/buckets/frontier-labs/token.json');
+    expect(res.statusCode).toBe(200);
+    const meta = res.json();
+    expect(meta.name).toBe('Frontier Labs');
+    expect(meta.symbol).toBe('FRONTIERLA'); // derived from the name, 10 chars, as the program does
+    expect(meta.image).toMatch(/\/og\/b\/frontier-labs\.png$/);
+    expect(meta.external_url).toMatch(/\/b\/frontier-labs$/);
+    expect(meta.description.length).toBeGreaterThan(0);
+    // Reachable by address too, because that is what the program stores in the uri.
+    expect((await get(`/v1/buckets/${frontier.address}/token.json`)).json().symbol).toBe('FRONTIERLA');
+    expect((await get('/v1/buckets/does-not-exist/token.json')).statusCode).toBe(404);
+  });
+
   it('GET /v1/buckets/:slug/chart downsamples by period', async () => {
     const week = (await get('/v1/buckets/frontier-labs/chart?period=7d')).json().points;
     const all = (await get('/v1/buckets/frontier-labs/chart?period=all')).json().points;

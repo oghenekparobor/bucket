@@ -37,6 +37,7 @@ const schedule: Scheduled[] = [
   tracked('pool-monitor', 5 * 60_000),
   tracked('routing-probe', 24 * HOUR_MS),
   tracked('deadline-alerts', 24 * HOUR_MS),
+  tracked('token-metadata', 10 * 60_000),
   tracked('privy-webhook-prune', 24 * HOUR_MS),
   { name: 'notifications', everyMs: 30_000, run: () => JOBS.notifications!(db), tracked: false },
 ];

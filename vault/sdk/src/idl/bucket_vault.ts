@@ -688,6 +688,114 @@ export type BucketVault = {
       ]
     },
     {
+      "name": "createTokenMetadata",
+      "docs": [
+        "Metaplex metadata for the bucket's mint: without it the token has no name, ticker or image",
+        "in any wallet. Separate from `create_bucket` so it can be retried, and backfilled by the",
+        "admin for buckets created before it existed."
+      ],
+      "discriminator": [
+        221,
+        80,
+        176,
+        37,
+        153,
+        188,
+        160,
+        68
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "The bucket's creator, or the program admin for backfilling. Anyone else could point a",
+            "bucket's metadata at a URI they control, which is how a token gets a scam image."
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bucket"
+        },
+        {
+          "name": "bucketMint"
+        },
+        {
+          "name": "metadata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tokenMetadataProgram"
+              },
+              {
+                "kind": "account",
+                "path": "bucketMint"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "tokenMetadataProgram"
+            }
+          }
+        },
+        {
+          "name": "tokenMetadataProgram",
+          "address": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "uri",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "fillMint",
       "discriminator": [
         57,
@@ -2102,6 +2210,112 @@ export type BucketVault = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "updateTokenMetadata",
+      "docs": [
+        "Rewrites the metadata from the bucket's current name, after `update_bucket_info`."
+      ],
+      "discriminator": [
+        243,
+        6,
+        8,
+        23,
+        126,
+        181,
+        251,
+        158
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "The bucket's creator, or the program admin for backfilling. Anyone else could point a",
+            "bucket's metadata at a URI they control, which is how a token gets a scam image."
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bucket"
+        },
+        {
+          "name": "bucketMint"
+        },
+        {
+          "name": "metadata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tokenMetadataProgram"
+              },
+              {
+                "kind": "account",
+                "path": "bucketMint"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "tokenMetadataProgram"
+            }
+          }
+        },
+        {
+          "name": "tokenMetadataProgram",
+          "address": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "uri",
+          "type": "string"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -2643,6 +2857,11 @@ export type BucketVault = {
       "code": 6041,
       "name": "mathOverflow",
       "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6042,
+      "name": "uriLength",
+      "msg": "Metadata URI is empty or longer than 200 characters"
     }
   ],
   "types": [
@@ -4799,6 +5018,114 @@ export const BUCKET_VAULT_IDL = {
       ]
     },
     {
+      "name": "create_token_metadata",
+      "docs": [
+        "Metaplex metadata for the bucket's mint: without it the token has no name, ticker or image",
+        "in any wallet. Separate from `create_bucket` so it can be retried, and backfilled by the",
+        "admin for buckets created before it existed."
+      ],
+      "discriminator": [
+        221,
+        80,
+        176,
+        37,
+        153,
+        188,
+        160,
+        68
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "The bucket's creator, or the program admin for backfilling. Anyone else could point a",
+            "bucket's metadata at a URI they control, which is how a token gets a scam image."
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bucket"
+        },
+        {
+          "name": "bucket_mint"
+        },
+        {
+          "name": "metadata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "token_metadata_program"
+              },
+              {
+                "kind": "account",
+                "path": "bucket_mint"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "token_metadata_program"
+            }
+          }
+        },
+        {
+          "name": "token_metadata_program",
+          "address": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "uri",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "fill_mint",
       "discriminator": [
         57,
@@ -6213,6 +6540,112 @@ export const BUCKET_VAULT_IDL = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "update_token_metadata",
+      "docs": [
+        "Rewrites the metadata from the bucket's current name, after `update_bucket_info`."
+      ],
+      "discriminator": [
+        243,
+        6,
+        8,
+        23,
+        126,
+        181,
+        251,
+        158
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "The bucket's creator, or the program admin for backfilling. Anyone else could point a",
+            "bucket's metadata at a URI they control, which is how a token gets a scam image."
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bucket"
+        },
+        {
+          "name": "bucket_mint"
+        },
+        {
+          "name": "metadata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "token_metadata_program"
+              },
+              {
+                "kind": "account",
+                "path": "bucket_mint"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "token_metadata_program"
+            }
+          }
+        },
+        {
+          "name": "token_metadata_program",
+          "address": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "uri",
+          "type": "string"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -6754,6 +7187,11 @@ export const BUCKET_VAULT_IDL = {
       "code": 6041,
       "name": "MathOverflow",
       "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6042,
+      "name": "UriLength",
+      "msg": "Metadata URI is empty or longer than 200 characters"
     }
   ],
   "types": [

@@ -32,6 +32,8 @@ const INSTRUCTION_SIGNERS: Record<string, string> = {
   createBucket: 'creator',
   closeBucket: 'creator',
   updateBucketInfo: 'creator — name and thesis only',
+  createTokenMetadata: 'creator / admin / keeper — writes the mint’s Metaplex metadata, touches no token account',
+  updateTokenMetadata: 'creator / admin / keeper — rewrites that metadata, touches no token account',
   settleCommission: 'anyone — mints fee tokens, moves no vault assets',
   claimFees: 'creator (own fee account) / anyone (platform fee account to fee wallet)',
   openMint: 'backer — moves only the backer’s own USDC',

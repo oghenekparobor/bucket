@@ -37,6 +37,8 @@ const schema = z.object({
 
   WEB_ORIGIN: z.string().default('http://localhost:3000'),
   PUBLIC_WEB_URL: z.string().default('http://localhost:3000'),
+  /** Public origin of this API. Wallets fetch a bucket token's metadata JSON and image from here. */
+  PUBLIC_API_URL: z.string().default('http://localhost:4000'),
 
   AUTH_MODE: z.enum(['privy', 'dev']).default('privy'),
   PRIVY_APP_ID: optionalString,

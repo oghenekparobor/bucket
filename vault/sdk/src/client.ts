@@ -14,6 +14,7 @@ import {
   Connection,
   PublicKey,
   SystemProgram,
+  SYSVAR_RENT_PUBKEY,
   TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
@@ -26,7 +27,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 
-import { BUCKET_VAULT_PROGRAM_ID, DEFAULT_PARAMS, type VaultParams } from './constants.js';
+import { BUCKET_VAULT_PROGRAM_ID, DEFAULT_PARAMS, TOKEN_METADATA_PROGRAM_ID, type VaultParams } from './constants.js';
 import { BUCKET_VAULT_IDL, type BucketVault } from './idl/bucket_vault.js';
 import { type HoldingState } from './math.js';
 import { newNonce, Pdas } from './pda.js';
@@ -298,6 +299,36 @@ export class BucketClient {
       .remainingAccounts(p.holdings.map((h) => ({ pubkey: this.pdas.asset(h.mint), isSigner: false, isWritable: false })))
       .instruction();
     return { bucket, bucketMint, id, ataIxs, createIx };
+  }
+
+  /**
+   * Metaplex metadata for a bucket's mint — without it the token has no name, ticker or image in any
+   * wallet. `authority` must be the bucket's creator or the program admin. `uri` points at the JSON
+   * document wallets read for the description and image (the backend serves one per bucket).
+   */
+  async tokenMetadataIx(p: {
+    authority: PublicKey;
+    payer: PublicKey;
+    bucketAddress: PublicKey;
+    tokenMint: PublicKey;
+    uri: string;
+    /** Rewrite existing metadata instead of creating it (after a rename). */
+    update?: boolean;
+  }): Promise<TransactionInstruction> {
+    const accounts = {
+      authority: p.authority,
+      payer: p.payer,
+      config: this.pdas.config(),
+      bucket: p.bucketAddress,
+      bucketMint: p.tokenMint,
+      metadata: this.pdas.metadata(p.tokenMint),
+      tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+    };
+    return p.update
+      ? this.program.methods.updateTokenMetadata(p.uri).accountsPartial(accounts).instruction()
+      : this.program.methods.createTokenMetadata(p.uri).accountsPartial(accounts).instruction();
   }
 
   updateBucketInfoIx(creator: PublicKey, bucket: PublicKey, name: string, thesis: string) {

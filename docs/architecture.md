@@ -68,6 +68,8 @@ Package manager: pnpm workspace (`vault/sdk`, `vault/tests`, `backend`, `web`). 
 | `settle_commission()` | anyone | Values the vault at `min(spot, twap)` per asset; if unit price > hwm: commission = 20% × (U − H) × S; mints `F = C × S / (V − C)` tokens split creator 80 / platform 20; hwm := new unit price |
 | `close_bucket()` | creator | Blocks new mints; redeem stays open; frees a creator slot |
 | `update_bucket_info(name, thesis)` | creator | Name and thesis only; history is never editable |
+| `create_token_metadata(uri)` | creator / admin / keeper | Metaplex metadata for the bucket mint: name and ticker on chain, `uri` for the rest. The mint authority is the bucket PDA, so only the program can write it; the update authority stays the bucket PDA. The ticker is derived from the name (letters and digits, uppercased, 10 max) |
+| `update_token_metadata(uri)` | creator / admin / keeper | Rewrites that metadata after a rename |
 | `claim_fees(creator)` | creator / anyone | Moves commission tokens from the program-owned fee account to the creator or the platform fee wallet |
 | `propose_edit(weights_bps[], note)` | creator | Phase 2. Same rules as create; 7-day cooldown; effective in 24h. Creates any new vault ATAs with creator as payer |
 | `admin_propose_removal(mint)` | admin | Phase 2. Force-remove a delisted token with the same 24h notice |
@@ -143,6 +145,7 @@ JSON conventions as implemented: token amounts (`supply`, `tokens`, `balance`, `
 | GET | `/v1/stats` | – | `{ totalBacked, bucketCount, backers, commissionPaid, creatorsPaid, medianPoolGapPct, shareLinkBackerPct }` |
 | GET | `/v1/leaderboard?period=30d` | – | `{ period, updatedAt, rows: (BucketSummary & { rank, return, spark: number[] })[] }` |
 | GET | `/v1/buckets/:slugOrAddress` | – | `BucketDetail` |
+| GET | `/v1/buckets/:slugOrAddress/token.json` | – | Metaplex off-chain metadata (`name`, `symbol`, `description`, `image`, `external_url`). What the on-chain `uri` points at; served live so a rename needs no chain write |
 | GET | `/v1/buckets/:slug/chart?period=` | – | `{ points: { t: string, unitPrice: number, hwm: number }[] }` |
 | GET | `/v1/creators/:wallet` | – | `{ creator: CreatorRef, buckets: BucketSummary[], totals }` |
 | GET | `/v1/quote/mint?bucket=&amount=` | – | `{ routes: [{ kind: 'mint' \| 'pool', available, tokensOut, effectivePrice, effectiveVsUnitPct, costUsd }], chosen, feeUsd, rentUsd, legs, unitPrice }` |

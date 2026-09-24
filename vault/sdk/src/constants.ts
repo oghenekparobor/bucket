@@ -7,6 +7,9 @@ import { MOCK_SWAP_IDL } from './idl/mock_swap.js';
 export const BUCKET_VAULT_PROGRAM_ID = new PublicKey(BUCKET_VAULT_IDL.address);
 export const MOCK_SWAP_PROGRAM_ID = new PublicKey(MOCK_SWAP_IDL.address);
 /** Jupiter aggregator v6 — the mainnet swap venue. */
+/** Metaplex Token Metadata: what wallets, explorers and DEX listings read a token's name from. */
+export const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+
 export const JUPITER_V6_PROGRAM_ID = new PublicKey('JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4');
 /** Mainnet USDC. Devnet uses a mock USDC created by `vault/scripts/devnet-setup.ts`. */
 export const MAINNET_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');

@@ -17,6 +17,7 @@ export function createGateway(cfg: Config, db: Queryable): SdkChainGateway {
       keeper: resolveKeypair(cfg.KEEPER_KEYPAIR, cfg.KEEPER_KEYPAIR_PATH, 'KEEPER'),
       priceAuthority: resolveKeypair(cfg.PRICE_AUTHORITY_KEYPAIR, cfg.PRICE_AUTHORITY_KEYPAIR_PATH, 'PRICE_AUTHORITY'),
     },
+    metadataUri: (bucket) => `${cfg.PUBLIC_API_URL.replace(/\/$/, '')}/v1/buckets/${bucket}/token.json`,
     lookupTableOf: async (bucket) =>
       (await db.query<{ lookup_table: string }>('SELECT lookup_table FROM bucket_chain WHERE bucket = $1', [bucket])).rows[0]?.lookup_table ?? null,
     solPriceUsd: async () => {

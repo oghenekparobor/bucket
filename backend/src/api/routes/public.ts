@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { deriveSymbol, truncateName } from '@bucket/sdk';
 import { chartStepMs } from '../../perf/metrics.js';
 import { big, roundPct, usdToE6 } from '../../util/money.js';
 import { DAY_MS, PERIODS, type Period, floorHour, periodDays } from '../../util/time.js';
@@ -82,6 +83,39 @@ export function registerPublicRoutes(app: FastifyInstance, ctx: AppContext): voi
     const detail = addr ? await loadDetail(db, addr) : null;
     if (!detail) throw notFound('Bucket');
     return detail;
+  });
+
+  /**
+   * The off-chain half of a bucket token's Metaplex metadata: wallets and explorers fetch this from
+   * the `uri` stored on chain. The on-chain account already carries the name and ticker; this adds
+   * the description and image, and is served live so a rename shows up without touching the chain.
+   */
+  app.get('/v1/buckets/:slugOrAddress/token.json', async (req, reply) => {
+    const { slugOrAddress } = parse(z.object({ slugOrAddress: z.string().min(1).max(64) }), req.params);
+    const addr = await resolveBucket(db, slugOrAddress);
+    const row = addr
+      ? (
+          await db.query<{ name: string; thesis: string; slug: string | null; token_mint: string }>(
+            `SELECT b.name, b.thesis, b.token_mint, s.slug FROM buckets b LEFT JOIN bucket_slugs s ON s.bucket = b.address WHERE b.address = $1`,
+            [addr],
+          )
+        ).rows[0]
+      : undefined;
+    if (!row) throw notFound('Bucket');
+    const site = cfg.PUBLIC_WEB_URL.replace(/\/$/, '');
+    const api = cfg.PUBLIC_API_URL.replace(/\/$/, '');
+    const slug = row.slug ?? addr!;
+    reply.header('cache-control', 'public, max-age=300');
+    return {
+      name: truncateName(row.name),
+      symbol: deriveSymbol(row.name),
+      description: row.thesis || `A Bucket holding tokenized stocks. ${site}/b/${slug}`,
+      image: `${api}/og/b/${slug}.png`,
+      external_url: `${site}/b/${slug}`,
+      // Wallets that follow the Metaplex off-chain standard read these two.
+      seller_fee_basis_points: 0,
+      properties: { category: 'image', files: [{ uri: `${api}/og/b/${slug}.png`, type: 'image/png' }] },
+    };
   });
 
   app.get('/v1/buckets/:slug/chart', async (req) => {

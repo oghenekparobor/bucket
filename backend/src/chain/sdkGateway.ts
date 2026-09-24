@@ -88,6 +88,8 @@ export interface SdkGatewayOptions {
   lookupTableOf: (bucket: string) => Promise<string | null>;
   /** Latest SOL/USD price, used to charge a new backer the account rent the fee payer fronts. */
   solPriceUsd: () => Promise<number | null>;
+  /** Where a bucket token's metadata JSON is served: wallets fetch it from the on-chain `uri`. */
+  metadataUri: (bucket: string) => string;
 }
 
 export class SdkChainGateway implements ChainGateway {
@@ -263,6 +265,17 @@ export class SdkChainGateway implements ChainGateway {
       amountE6: p.stakeE6,
       rentFeeE6: await this.rentFee(flow.bucketMint, creator, 'new'),
     });
+    // Metaplex metadata for the bucket's mint: without it the token is unnamed in every wallet.
+    // Last in the batch on purpose — the money must land first, and if this one fails the
+    // `token-metadata` job backfills it as keeper.
+    const metadataIx = await this.client.tokenMetadataIx({
+      authority: creator,
+      payer: feePayer.publicKey,
+      bucketAddress: flow.bucket,
+      tokenMint: flow.bucketMint,
+      uri: this.o.metadataUri(flow.bucket.toBase58()),
+    });
+
     // Order: vault ATAs, lookup table (create, then one extend per transaction — an extend carries up
     // to 24 × 32 bytes of addresses, so it does not share a transaction with anything), create_bucket
     // and the first mint through the table. These are all fee-payer-signed, so the extra transactions
@@ -273,6 +286,7 @@ export class SdkChainGateway implements ChainGateway {
       ...lt.extends.map((ix) => this.encode([ix], blockhash)),
       this.encode([flow.createIx], blockhash, [table]),
       this.encode([mintIx], blockhash, [table]),
+      this.encode([metadataIx], blockhash),
     ];
     return { transactions, bucket: flow.bucket.toBase58(), lookupTable: lt.table.toBase58(), order: order.toBase58() };
   }
@@ -367,6 +381,26 @@ export class SdkChainGateway implements ChainGateway {
       if (!program || !this.allowedPrograms.has(program)) throw new TxRejectedError(`program ${program} is not allowed`);
     }
     return this.sendAndConfirm(tx.serialize());
+  }
+
+  /**
+   * Creates the token's metadata account if it is missing, signing as keeper. Publishing includes a
+   * metadata transaction, but it is the last one in the batch and can expire; this makes that
+   * recoverable without the creator coming back.
+   */
+  async ensureTokenMetadata(p: { bucket: string; tokenMint: string }): Promise<string | null> {
+    const mint = new PublicKey(p.tokenMint);
+    if (await this.connection.getAccountInfo(this.client.pdas.metadata(mint))) return null;
+    const feePayer = this.key('feePayer');
+    const keeper = this.key('keeper');
+    const ix = await this.client.tokenMetadataIx({
+      authority: keeper.publicKey,
+      payer: feePayer.publicKey,
+      bucketAddress: new PublicKey(p.bucket),
+      tokenMint: mint,
+      uri: this.o.metadataUri(p.bucket),
+    });
+    return this.send([ix], [feePayer, keeper]);
   }
 
   // ── keeper ──

@@ -82,6 +82,18 @@ pub mod bucket_vault {
         lifecycle::update_bucket_info(ctx, name, thesis)
     }
 
+    /// Metaplex metadata for the bucket's mint: without it the token has no name, ticker or image
+    /// in any wallet. Separate from `create_bucket` so it can be retried, and backfilled by the
+    /// admin for buckets created before it existed.
+    pub fn create_token_metadata(ctx: Context<BucketMetadata>, uri: String) -> Result<()> {
+        metadata::create_token_metadata(ctx, uri)
+    }
+
+    /// Rewrites the metadata from the bucket's current name, after `update_bucket_info`.
+    pub fn update_token_metadata(ctx: Context<BucketMetadata>, uri: String) -> Result<()> {
+        metadata::update_token_metadata(ctx, uri)
+    }
+
     pub fn close_bucket(ctx: Context<CloseBucket>) -> Result<()> {
         lifecycle::close_bucket(ctx)
     }
