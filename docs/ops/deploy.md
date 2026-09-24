@@ -92,6 +92,23 @@ whose id is not `s/<service id>-<target path>`, and forbids variables inside tha
 covers the same ground: `pnpm install` re-runs only when a manifest or the lockfile changes, because
 the stage before it copies manifests and nothing else.
 
+## Running a job by hand
+
+Set `ADMIN_TOKEN` on the api service (`openssl rand -hex 32`), then any worker job can be run from
+the API process:
+
+```bash
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://<api>/v1/admin/jobs/catalog
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://<api>/v1/admin/jobs/indexer
+curl      -H "Authorization: Bearer $ADMIN_TOKEN" https://<api>/v1/admin/jobs      # every job, last run
+```
+
+The catalog takes 10–30 seconds (three issuer APIs plus prices) and answers with the same stats the
+worker logs. This fills an empty deployment immediately and re-runs a job after its cause is fixed;
+it is not a replacement for the worker, which repeats every job on a schedule and runs the indexer
+every 3 seconds. `price-push` signs with the price authority, so it needs `PRICE_AUTHORITY_KEYPAIR`
+on the api service too if you intend to run it here.
+
 ## Database
 
 `DATABASE_URL` is the only thing the backend reads. The `db` service in `docker-compose.yml` is a

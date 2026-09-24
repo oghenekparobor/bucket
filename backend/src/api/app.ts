@@ -18,6 +18,7 @@ import { registerCardRoutes } from './routes/cards.js';
 import { registerMeRoutes } from './routes/me.js';
 import { registerPublicRoutes } from './routes/public.js';
 import { registerTxRoutes } from './routes/tx.js';
+import { registerAdminRoutes } from './routes/admin.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
 
 /** The slice of the Privy client the webhook route needs (mockable in tests). */
@@ -98,5 +99,6 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerTxRoutes(app, ctx);
   registerCardRoutes(app, ctx);
   registerWebhookRoutes(app, ctx);
+  registerAdminRoutes(app, ctx);
   return app;
 }

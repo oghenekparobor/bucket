@@ -46,6 +46,8 @@ const schema = z.object({
   /** Signing secret of the Privy dashboard webhook ("whsec_…"). Without it the webhook route is off. */
   PRIVY_WEBHOOK_SECRET: optionalString,
   DEV_AUTH_MAX_AGE_SECS: z.coerce.number().int().default(86_400),
+  /** Bearer token for /v1/admin/*, which runs worker jobs on demand. Unset = those routes are off. */
+  ADMIN_TOKEN: optionalString,
 
   WRITE_RATE_LIMIT_PER_MIN: z.coerce.number().int().default(30),
   // Edge geo headers, first match wins (Cloudflare, then Vercel).
