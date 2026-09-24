@@ -14,6 +14,16 @@ await migrate(db, (m) => logger.info(m));
 const privy = config.PRIVY_APP_ID && config.PRIVY_APP_SECRET ? new PrivyClient(config.PRIVY_APP_ID, config.PRIVY_APP_SECRET) : null;
 if (config.AUTH_MODE === 'privy' && !privy) logger.warn('AUTH_MODE=privy but PRIVY_APP_ID / PRIVY_APP_SECRET are not set: every write will be rejected');
 
+// Each of these defaults to localhost and fails quietly once deployed: WEB_ORIGIN as CORS errors in
+// the browser (the API answers 200, the browser drops the response), PUBLIC_WEB_URL as broken share
+// links, PUBLIC_API_URL as token metadata no wallet can fetch. Say so at boot, where someone is looking.
+if (config.NODE_ENV === 'production') {
+  const local = (['WEB_ORIGIN', 'PUBLIC_WEB_URL', 'PUBLIC_API_URL'] as const).filter((k) => /localhost|127\.0\.0\.1/.test(config[k]));
+  if (local.length) {
+    logger.warn({ vars: local }, 'production is running with localhost origins: set these to the public URLs. Until WEB_ORIGIN is the web app’s origin, browsers block every API call');
+  }
+}
+
 const app = await buildApp({
   db,
   gateway: createGateway(config, db),
