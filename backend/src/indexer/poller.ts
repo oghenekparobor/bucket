@@ -23,6 +23,12 @@ export class ChainIndexer {
     private readonly log: Logger,
     /** Called with the buckets whose events were just ingested (refreshes their metrics right away). */
     private readonly onBucketsChanged: (buckets: string[]) => Promise<void> = async () => undefined,
+    /**
+     * Called when an asset was listed or changed on chain. A newly listed mint is created with
+     * `eligible = false` and no reason, and would sit like that until the next scheduled price
+     * sync — on a fresh deployment that read as "every token is below the floor".
+     */
+    private readonly onAssetsChanged: () => Promise<void> = async () => undefined,
   ) {}
 
   /** Indexes everything since the checkpoint; returns the number of new events. */
@@ -73,6 +79,7 @@ export class ChainIndexer {
 
     let total = 0;
     const touched = new Set<string>();
+    let assetsChanged = false;
     for (const s of fresh) {
       if (!s.err) {
         const tx = await this.connection.getTransaction(s.signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' });
@@ -80,7 +87,10 @@ export class ChainIndexer {
         const blockTime = new Date((tx?.blockTime ?? Math.floor(Date.now() / 1000)) * 1000);
         const events: RawEvent[] = this.decode(logs).map((e, i) => ({ ...e, signature: s.signature, slot: s.slot, eventIndex: i, blockTime }));
         if (events.length) total += await ingestEvents(this.db, events, this.ctx());
-        for (const e of events) if (typeof e.data.bucket === 'string') touched.add(e.data.bucket);
+        for (const e of events) {
+          if (typeof e.data.bucket === 'string') touched.add(e.data.bucket);
+          if (e.name === 'AssetAdded' || e.name === 'AssetUpdated') assetsChanged = true;
+        }
       }
       await this.db.query(
         `INSERT INTO indexer_state (key, last_signature, last_slot, updated_at) VALUES ($1, $2, $3, now())
@@ -89,6 +99,7 @@ export class ChainIndexer {
       );
     }
     if (total) this.log.info({ events: total, txs: fresh.length }, 'indexed program events');
+    if (assetsChanged) await this.onAssetsChanged();
     if (touched.size) await this.onBucketsChanged([...touched]);
     return total;
   }

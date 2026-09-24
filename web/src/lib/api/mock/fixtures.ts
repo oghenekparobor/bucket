@@ -108,6 +108,7 @@ export const CATALOG: CatalogToken[] = RAW_CATALOG.map((r, i) => ({
   decimals: r.s === 'xStocks' ? 8 : 6,
   logo: null,
   eligible: true,
+  eligibilityReason: null,
   flagged: false,
   maxWeightPct: r.s === 'xStocks' ? 50 : 25,
 }));

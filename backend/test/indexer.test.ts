@@ -6,7 +6,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Connection } from '@solana/web3.js';
 import type { Db } from '../src/db/pool.js';
 import type { EventName } from '../src/indexer/events.js';
+import { recomputeEligibility } from '../src/catalog/repo.js';
+import { config } from '../src/config.js';
 import { ChainIndexer } from '../src/indexer/poller.js';
+import { eligibilityRules } from '../src/jobs/catalogSync.js';
 import { logger } from '../src/logger.js';
 import { freshDb } from './helpers/db.js';
 
@@ -61,8 +64,12 @@ const decode = (logs: string[]) =>
     },
   }));
 
+let recomputes = 0;
 const indexer = (conn: Connection, db: Db) =>
-  new ChainIndexer(db, conn, PROGRAM, decode, () => ({ platformWallet: PLATFORM, nowMs: Date.now() }), logger);
+  new ChainIndexer(db, conn, PROGRAM, decode, () => ({ platformWallet: PLATFORM, nowMs: Date.now() }), logger, undefined, async () => {
+    recomputes += 1;
+    await recomputeEligibility(db, eligibilityRules(config));
+  });
 
 const checkpoint = (db: Db) =>
   db.query<{ last_signature: string; last_slot: string }>("SELECT last_signature, last_slot FROM indexer_state WHERE key = 'program'");
@@ -81,6 +88,19 @@ describe('ChainIndexer checkpoint recovery', () => {
     const calls: Calls = { withUntil: 0, withoutUntil: 0 };
     expect(await indexer(fakeConnection(true, calls), db).pollOnce()).toBe(3);
     expect((await checkpoint(db)).rows[0]).toMatchObject({ last_signature: 'sig-c', last_slot: '102' });
+  });
+
+  it('decides eligibility for a newly listed mint at once, instead of leaving it "not eligible, no reason"', async () => {
+    // A listing is inserted as not eligible with no reason, and used to stay that way until the next
+    // scheduled price sync. On production that blank rendered as "Below floor" for every token,
+    // including ones with millions in liquidity. Now the verdict follows the listing immediately:
+    // these fixtures are priced and enabled with no issuer feed, which the rule treats as usable.
+    expect(recomputes).toBeGreaterThan(0);
+    const rows = await db.query<{ eligible: boolean; eligibility_reason: string | null }>(
+      `SELECT eligible, eligibility_reason FROM assets WHERE program_listed ORDER BY mint`,
+    );
+    expect(rows.rows.length).toBeGreaterThan(0);
+    for (const r of rows.rows) expect(r).toEqual({ eligible: true, eligibility_reason: null });
   });
 
   it('makes progress when the RPC node does not know the checkpoint signature', async () => {

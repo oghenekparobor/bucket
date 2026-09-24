@@ -35,6 +35,22 @@ import { GEO_MESSAGE } from '@/lib/geo';
 import { friendlyError, signAndSubmit, type FriendlyError } from '@/lib/txFlow';
 import c from './create.module.css';
 
+/**
+ * Why a catalog token cannot be added, from the API's eligibility reason. Every ineligible token
+ * used to read "Below floor", including ones with millions in liquidity whose real reason was an
+ * issuer deadline — or no verdict yet at all.
+ */
+const INELIGIBLE_LABEL: Record<string, string> = {
+  below_liquidity_floor: 'Below floor',
+  no_price: 'No price',
+  no_route: 'No route',
+  flagged: 'Flagged',
+  disabled_on_chain: 'Disabled',
+  issuer_redemption_window: 'Redeeming',
+  issuer_conversion_deadline: 'Converting',
+};
+const ineligibleLabel = (reason: string | null): string => (reason ? (INELIGIBLE_LABEL[reason] ?? 'Not eligible') : 'Not eligible');
+
 interface DraftHolding {
   mint: string;
   w: number;
@@ -335,7 +351,7 @@ export function CreateView({ editSlug }: { editSlug: string | null }) {
               const added = draft.holdings.some((h) => h.mint === t.mint);
               const full = !added && draft.holdings.length >= MAX_HOLDINGS;
               const blocked = !added && (!t.eligible || t.flagged);
-              const action = added ? 'Added' : t.flagged ? 'Flagged' : !t.eligible ? 'Below floor' : full ? 'Max 15' : 'Add';
+              const action = added ? 'Added' : t.flagged ? 'Flagged' : !t.eligible ? ineligibleLabel(t.eligibilityReason) : full ? 'Max 15' : 'Add';
               return (
                 <li key={t.mint}>
                   <button

@@ -22,6 +22,8 @@ export interface CatalogToken {
   decimals: number;
   logo: string | null;
   eligible: boolean;
+  /** Why not eligible: below_liquidity_floor, no_price, no_route, flagged, disabled_on_chain, issuer_* … */
+  eligibilityReason: string | null;
   flagged: boolean;
   maxWeightPct: number;
 }

@@ -9,9 +9,10 @@ import { logger } from '../logger.js';
 import { channelsFromConfig } from '../notify/channels.js';
 import { dispatchPending } from '../notify/dispatcher.js';
 import { pushPrices } from '../prices/pricePusher.js';
+import { recomputeEligibility } from '../catalog/repo.js';
 import { runTokenMetadata } from './tokenMetadata.js';
 import { prunePrivyWebhooks } from '../privy/webhooks.js';
-import { runCatalogSync, runPriceSync } from './catalogSync.js';
+import { runCatalogSync, runPriceSync, eligibilityRules } from './catalogSync.js';
 import { runDeadlineAlerts } from './deadlineAlerts.js';
 import { runLeaderboard } from './leaderboard.js';
 import { refreshBuckets, runPerformance } from './performance.js';
@@ -33,6 +34,10 @@ export function createIndexer(db: Db): ChainIndexer {
     logger.child({ component: 'indexer' }),
     // Mints, redeems and settlements change unit price, total backed and holders: refresh those buckets now.
     (buckets) => refreshBuckets(db, buckets),
+    // A mint listed on chain is eligible (or not) the moment it appears, not at the next price sync.
+    async () => {
+      await recomputeEligibility(db, eligibilityRules(config));
+    },
   );
 }
 
