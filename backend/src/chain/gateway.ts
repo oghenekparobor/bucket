@@ -55,6 +55,12 @@ export interface BuiltCreate {
   lookupTable: string;
   /** The creator's first mint order, opened by the last transaction. */
   order: string;
+  /**
+   * Indices of transactions whose failure must not fail the publish. Today that is the token
+   * metadata transaction: it is last on purpose, and the keeper backfills it if it does not land.
+   * Everything else in the batch is the bucket itself and the creator's money.
+   */
+  optional: number[];
 }
 
 export interface ChainGateway {

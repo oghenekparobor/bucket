@@ -288,7 +288,13 @@ export class SdkChainGateway implements ChainGateway {
       this.encode([mintIx], blockhash, [table]),
       this.encode([metadataIx], blockhash),
     ];
-    return { transactions, bucket: flow.bucket.toBase58(), lookupTable: lt.table.toBase58(), order: order.toBase58() };
+    return {
+      transactions,
+      bucket: flow.bucket.toBase58(),
+      lookupTable: lt.table.toBase58(),
+      order: order.toBase58(),
+      optional: [transactions.length - 1], // the metadata transaction; see BuiltCreate
+    };
   }
 
   async buildMintTx(p: { backer: string; bucket: string; amountE6: bigint }) {

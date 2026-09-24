@@ -44,22 +44,43 @@ export function friendlyError(e: unknown): FriendlyError {
 
 export type SignStage = 'signing' | 'submitting';
 
-/** Sign each transaction the user must sign (relay the ones Bucket fully signed) and submit them in order. */
+export interface SubmitOptions {
+  /**
+   * Indices whose failure must not fail the whole flow. The backend marks the token metadata
+   * transaction this way: it is last, cosmetic, and the keeper backfills it. Without this, a creator
+   * whose bucket and stake had already landed was told the publish failed.
+   */
+  optional?: number[];
+  /** Called for an optional transaction that was skipped, with the error it failed on. */
+  onSkip?: (index: number, error: unknown) => void;
+}
+
+/**
+ * Sign each transaction the user must sign (relay the ones Bucket fully signed) and submit them in
+ * order. Returns the signatures that landed; a skipped optional transaction contributes none.
+ */
 export async function signAndSubmit(
   transactions: string[],
   caller: Caller,
   sign: (tx: VersionedTransaction) => Promise<VersionedTransaction>,
   onStage?: (stage: SignStage, index: number, total: number) => void,
+  options: SubmitOptions = {},
 ): Promise<string[]> {
   const api = await getApi();
+  const optional = new Set(options.optional ?? []);
   const signatures: string[] = [];
   for (let i = 0; i < transactions.length; i++) {
-    onStage?.('signing', i, transactions.length);
-    const tx = decodeTx(transactions[i]);
-    const signed = signingPlan(tx, caller.wallet) === 'sign' ? await sign(tx) : tx;
-    onStage?.('submitting', i, transactions.length);
-    const { signature } = await api.txSubmit(caller, { transaction: encodeTx(signed) });
-    signatures.push(signature);
+    try {
+      onStage?.('signing', i, transactions.length);
+      const tx = decodeTx(transactions[i]);
+      const signed = signingPlan(tx, caller.wallet) === 'sign' ? await sign(tx) : tx;
+      onStage?.('submitting', i, transactions.length);
+      const { signature } = await api.txSubmit(caller, { transaction: encodeTx(signed) });
+      signatures.push(signature);
+    } catch (err) {
+      if (!optional.has(i)) throw err;
+      options.onSkip?.(i, err);
+    }
   }
   return signatures;
 }

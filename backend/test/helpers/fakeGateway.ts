@@ -18,6 +18,7 @@ export class FakeGateway implements ChainGateway {
       bucket: '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin',
       lookupTable: 'AddressLookupTab1e1111111111111111111111111',
       order: 'So11111111111111111111111111111111111111112',
+      optional: [1],
     });
   }
   buildMintTx(p: unknown) {

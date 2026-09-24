@@ -86,7 +86,7 @@ export function registerTxRoutes(app: FastifyInstance, ctx: AppContext): void {
       `INSERT INTO bucket_chain (bucket, lookup_table) VALUES ($1, $2) ON CONFLICT (bucket) DO UPDATE SET lookup_table = EXCLUDED.lookup_table`,
       [built.bucket, built.lookupTable],
     );
-    return { transactions: built.transactions, bucket: built.bucket, slug, order: built.order };
+    return { transactions: built.transactions, bucket: built.bucket, slug, order: built.order, optional: built.optional };
   });
 
   app.post('/v1/tx/mint', opts, async (req) => {

@@ -158,7 +158,7 @@ JSON conventions as implemented: token amounts (`supply`, `tokens`, `balance`, `
 | GET | `/v1/me` | ✓ | `{ userId, wallet, email, xHandle, xVerified, usdcBalance, solBalance }` |
 | GET | `/v1/me/portfolio` | ✓ | `{ positions: { bucket: BucketSummary, tokens, unitPrice, value, paid, gainUsd, gainPct }[], totals: { value, paid, gainUsd, gainPct, commissionPaid } }` |
 | GET | `/v1/me/dashboard` | ✓ | creator dashboard (backers by day, commission, funnel, own buckets) |
-| POST | `/v1/tx/create-bucket` | ✓ | body `{ name, thesis, holdings: { mint, weightPct }[], stakeUsd }` → `{ transactions: string[] /* base64 v0, send in order; ones only Bucket signs are already complete and are relayed as-is */, bucket, slug, order /* the creator's first mint */ }` |
+| POST | `/v1/tx/create-bucket` | ✓ | body `{ name, thesis, holdings: { mint, weightPct }[], stakeUsd }` → `{ transactions: string[] /* base64 v0, send in order; ones only Bucket signs are already complete and are relayed as-is */, bucket, slug, order /* the creator's first mint */ }` The response also carries `optional`: indices of transactions whose failure must not fail the publish (the token metadata one, backfilled by the keeper). |
 | POST | `/v1/tx/mint` | ✓ | `{ bucket, amountUsd }` → `{ transaction, order }` |
 | POST | `/v1/tx/redeem` | ✓ | `{ bucket, tokens }` → `{ transaction, order }` |
 | POST | `/v1/tx/close-bucket` | ✓ | `{ bucket }` → `{ transaction }` |

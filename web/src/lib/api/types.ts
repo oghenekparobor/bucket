@@ -291,6 +291,8 @@ export interface CreateBucketResult {
   slug: string;
   /** The creator's first mint order, when the backend returns it (fills like any mint). */
   order?: string | null;
+  /** Indices of transactions that may fail without failing the publish (token metadata; the keeper backfills it). */
+  optional?: number[];
 }
 
 export interface TxResult {

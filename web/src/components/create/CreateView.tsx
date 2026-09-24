@@ -167,7 +167,7 @@ export function CreateView({ editSlug }: { editSlug: string | null }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
   const [error, setError] = useState<FriendlyError | null>(null);
-  const [published, setPublished] = useState<{ name: string; stake: number; slug: string; order: string | null } | null>(null);
+  const [published, setPublished] = useState<{ name: string; stake: number; slug: string; order: string | null; metadataPending?: boolean } | null>(null);
   const [proposed, setProposed] = useState<{ slug: string } | null>(null);
   const editBucket: BucketDetail | undefined = editQ.data;
   const notCreator = !!editBucket && !!auth.wallet && editBucket.creator.wallet !== auth.wallet;
@@ -218,23 +218,31 @@ export function CreateView({ editSlug }: { editSlug: string | null }) {
       setWorking('Preparing…');
       const fresh = await buildTxs(auth.wallet);
       setBuilt(fresh);
-      await signAndSubmit(fresh.transactions, { wallet: auth.wallet, token: auth.getAccessToken }, auth.signTransaction, (st, i, n) =>
-        setWorking(
-          st === 'signing'
-            ? n > 1
-              ? `Waiting for signature ${i + 1} of ${n}…`
-              : 'Waiting for your signature…'
-            : n > 1
-              ? `Submitting ${i + 1} of ${n}…`
-              : 'Submitting…',
-        ),
+      // The token metadata transaction is optional: if it does not land, the keeper adds the
+      // metadata later and the creator only needs to know it is on its way.
+      let metadataPending = false;
+      await signAndSubmit(
+        fresh.transactions,
+        { wallet: auth.wallet, token: auth.getAccessToken },
+        auth.signTransaction,
+        (st, i, n) =>
+          setWorking(
+            st === 'signing'
+              ? n > 1
+                ? `Waiting for signature ${i + 1} of ${n}…`
+                : 'Waiting for your signature…'
+              : n > 1
+                ? `Submitting ${i + 1} of ${n}…`
+                : 'Submitting…',
+          ),
+        { optional: fresh.optional ?? [], onSkip: () => (metadataPending = true) },
       );
       setSheetOpen(false);
       void refreshAfterTx();
       if (editSlug) {
         setProposed({ slug: fresh.slug });
       } else {
-        setPublished({ name: draft.name.trim(), stake, slug: fresh.slug, order: fresh.order ?? null });
+        setPublished({ name: draft.name.trim(), stake, slug: fresh.slug, order: fresh.order ?? null, metadataPending });
         setDraft(EMPTY);
         try {
           window.localStorage.removeItem(DRAFT_KEY);
@@ -736,7 +744,7 @@ function PublishedModal({
   published,
   onDone,
 }: {
-  published: { name: string; stake: number; slug: string; order: string | null } | null;
+  published: { name: string; stake: number; slug: string; order: string | null; metadataPending?: boolean } | null;
   onDone: () => void;
 }) {
   const { copied, copy } = useCopy();
@@ -754,6 +762,11 @@ function PublishedModal({
           <h2 id="published-title" style={{ fontSize: 22, fontWeight: 700, margin: '14px 0 0' }}>
             {published.name} is live
           </h2>
+          {published.metadataPending ? (
+            <p style={{ fontSize: 13, color: 'var(--c-grey-700)', margin: '8px 0 0', lineHeight: 1.5 }}>
+              Its name and ticker will show up in wallets shortly — that last step finishes in the background.
+            </p>
+          ) : null}
           <p style={{ fontSize: 14, color: 'var(--c-grey-700)', margin: '8px 0 0', lineHeight: 1.55 }}>
             Recipe written on-chain, token mint and vault created, and your {usd(published.stake, 0)} is minting into the first
             tokens.
