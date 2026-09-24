@@ -45,7 +45,10 @@ describe('public reads', () => {
   it('GET /v1/health', async () => {
     const r = await get('/v1/health');
     expect(r.statusCode).toBe(200);
-    expect(keys(r.json())).toEqual(['cluster', 'corsOrigins', 'lastSync', 'ok', 'programId']);
+    expect(keys(r.json())).toEqual(['cluster', 'corsOrigins', 'lastSync', 'ok', 'programId', 'worker']);
+    // Whether a worker has ever run here, and how its last catalog attempt went — the difference
+    // between "start the worker" and "the catalog job is failing" when the app is empty.
+    expect(keys(r.json().worker)).toEqual(['catalog', 'lastRunAt']);
     // The CORS allow-list is reported so a misconfigured deploy can be diagnosed with one curl.
     expect(r.json().corsOrigins).toEqual(['http://localhost:3000']);
   });

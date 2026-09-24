@@ -20,10 +20,17 @@ export function registerPublicRoutes(app: FastifyInstance, ctx: AppContext): voi
   const { db, cfg } = ctx;
 
   app.get('/v1/health', async () => {
-    const [sync, db_ok] = await Promise.all([
+    const [sync, db_ok, lastRun, catalogRun] = await Promise.all([
       db.query(`SELECT finished_at FROM job_runs WHERE job = 'catalog' AND ok ORDER BY finished_at DESC LIMIT 1`),
       db.query('SELECT 1').then(() => true).catch(() => false),
+      // The worker records every job attempt, so these say whether it has ever run against this
+      // database, and why the catalog is empty when it is: never attempted vs attempted and failed.
+      db.query<{ at: Date | null }>(`SELECT max(started_at) AS at FROM job_runs`),
+      db.query<{ started_at: Date; ok: boolean | null; error: string | null }>(
+        `SELECT started_at, ok, error FROM job_runs WHERE job = 'catalog' ORDER BY started_at DESC LIMIT 1`,
+      ),
     ]);
+    const catalog = catalogRun.rows[0];
     return {
       ok: db_ok,
       cluster: cfg.CLUSTER,
@@ -32,6 +39,14 @@ export function registerPublicRoutes(app: FastifyInstance, ctx: AppContext): voi
       // The browser origins this API answers CORS for. Not a secret (a matching browser sees it in
       // the response header anyway), and the fastest way to see why the app is getting CORS errors.
       corsOrigins: webOrigins(cfg),
+      // `lastRunAt: null` means no worker has ever run against this database: the catalog, indexer
+      // and every scheduled job live there, so the app is empty until it does.
+      worker: {
+        lastRunAt: lastRun.rows[0]?.at?.toISOString() ?? null,
+        catalog: catalog
+          ? { attemptedAt: catalog.started_at.toISOString(), ok: catalog.ok ?? false, error: catalog.error }
+          : null,
+      },
     };
   });
 

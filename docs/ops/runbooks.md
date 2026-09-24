@@ -69,7 +69,9 @@ For a suspected bug in redeem or the vault itself: an upgrade needs the upgrade 
 
 ## 7. A bucket exists on chain but not in the app
 
-**Signal:** a creator publishes and the bucket is nowhere in the app: no bucket page, no order in their portfolio, and the leaderboard never mentions it. `indexer_state.updated_at` is stale.
+**Signal:** a creator publishes and the bucket is nowhere in the app: no bucket page, no order in their portfolio, and the leaderboard never mentions it. Or, on a fresh deployment, the catalog is empty and `/v1/health` shows `lastSync: null`. `indexer_state.updated_at` is stale.
+
+`curl <api>/v1/health` answers the first question without any access to the database: `worker.lastRunAt: null` means no worker has ever run against this database — start it, nothing else is wrong yet. `worker.catalog.ok: false` with an `error` means the worker runs but the catalog job fails; the error text says why.
 
 The vault is the source of truth; everything the app shows is a projection the indexer builds from program events. When the indexer stops, publishing still works on chain and the app simply goes blind. Nothing is lost — the projection rebuilds from the events.
 
