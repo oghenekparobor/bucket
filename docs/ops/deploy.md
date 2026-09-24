@@ -138,9 +138,15 @@ docker build -t bucket \
 ```
 
 `API_URL` is read at runtime instead, for server-side rendering over the internal network
-(`http://api:4000` in compose). The web app is Next's standalone output: it carries its own traced
-`node_modules`, inlines the config into `server.js`, and changes to its own directory on start, so it
-installs nothing and does not care what the working directory is.
+(`http://api:4000` in compose). The web app is Next's standalone output: it inlines the config into
+`server.js` and changes to its own directory on start, so it installs nothing and does not care what
+the working directory is.
+
+It does keep pnpm's layout, though: `web/node_modules/*` are symlinks into a hidden store at
+`<root>/node_modules/.pnpm`, and `ls` will not show it. The Dockerfile copies the store into the
+backend's `node_modules` (same lockfile, so shared packages are identical) and the app into `web/`.
+Copying only the app leaves every symlink dangling and `server.js` fails with
+`Cannot find module 'next'`. `backend/test/imageAssets.test.ts` checks both copies are present.
 
 ## Upgrading the program
 

@@ -87,9 +87,12 @@ COPY --chown=node:node backend/assets backend/assets
 COPY --chown=node:node backend/config backend/config
 COPY --chown=node:node vault/deployments vault/deployments
 
-# Web: Next's standalone bundle is self-contained — it carries its own node_modules, inlines the
-# config into server.js and chdir's to its own directory — so it drops in over the manifest stub that
-# the dependency stage left at web/. `docs/` sits beside it because the legal pages are read at runtime.
+# Web: Next's standalone bundle keeps pnpm's layout — web/node_modules/* are SYMLINKS into a hidden
+# store at <root>/node_modules/.pnpm — so both halves must come across, into the same places, or
+# server.js dies with "Cannot find module 'next'". The store merges into the backend's: same lockfile,
+# so any package in both is byte-identical. Config is inlined into server.js and it chdir's to its
+# own directory, so nothing else is needed. `docs/` sits beside it: the legal pages are read at runtime.
+COPY --from=build --chown=node:node /app/web/.next/standalone/node_modules ./node_modules/
 COPY --from=build --chown=node:node /app/web/.next/standalone/web ./web/
 COPY --from=build --chown=node:node /app/web/.next/static ./web/.next/static
 COPY --from=build --chown=node:node /app/web/.next/standalone/docs ./docs/

@@ -48,6 +48,22 @@ describe('the image carries every file the backend reads at runtime', () => {
     });
   }
 
+  it('ships both halves of the Next standalone bundle', () => {
+    // Next keeps pnpm's layout: web/node_modules/* are symlinks into a hidden store at
+    // <root>/node_modules/.pnpm. Copying the app without the store leaves every symlink dangling and
+    // server.js dies with "Cannot find module 'next'" — which is how the first web deploy failed.
+    const stage = dockerfile.split(/^FROM /m).find((s) => s.startsWith('base AS runtime')) ?? '';
+    const copies = [...stage.matchAll(/^COPY\s+(?:--\S+\s+)*(\S+)\s+(\S+)\s*$/gm)].map((m) => [m[1]!, m[2]!]);
+    const has = (src: string, dst: string) => copies.some(([s, d]) => s === src && d === dst);
+    expect(has('/app/web/.next/standalone/node_modules', './node_modules/'), 'the hidden pnpm store the symlinks point into').toBe(true);
+    expect(has('/app/web/.next/standalone/web', './web/'), 'server.js and the traced app').toBe(true);
+    expect(has('/app/web/.next/static', './web/.next/static'), 'static assets are not part of standalone').toBe(true);
+    // Order matters: the store must land in the same node_modules the backend's install created.
+    const storeIdx = copies.findIndex(([s]) => s === '/app/web/.next/standalone/node_modules');
+    const backendIdx = copies.findIndex(([s]) => s === '/app');
+    expect(storeIdx).toBeGreaterThan(backendIdx);
+  });
+
   it('keeps the data directories out of .dockerignore', () => {
     const ignore = readFileSync(join(repoRoot, '.dockerignore'), 'utf8')
       .split('\n')
