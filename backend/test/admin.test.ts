@@ -61,6 +61,17 @@ describe('admin job routes', () => {
     expect(runs.rows).toEqual([{ ok: true }]);
   });
 
+  it('accept a bare POST even when the client labels an empty body as JSON', async () => {
+    // Postman and fetch() both do this; the first real call hit "Body cannot be empty".
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/jobs/privy-webhook-prune',
+      headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ job: 'privy-webhook-prune', ok: true });
+  });
+
   it('list every job the worker knows, with the last run where there is one', async () => {
     const res = await call('GET', '/v1/admin/jobs', TOKEN);
     expect(res.statusCode).toBe(200);

@@ -29,7 +29,25 @@ function requireAdmin(req: FastifyRequest, token: string | undefined): void {
 /** Job results may carry bigints, which JSON cannot; the runner stores them the same way. */
 const jsonSafe = (value: unknown): unknown => JSON.parse(JSON.stringify(value ?? null, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
-export function registerAdminRoutes(app: FastifyInstance, ctx: AppContext): void {
+export async function registerAdminRoutes(root: FastifyInstance, ctx: AppContext): Promise<void> {
+  // Encapsulated so the lenient parser below applies to these routes only.
+  await root.register(async (app) => {
+    // A bare POST is the natural way to trigger a job, and many clients still send
+    // `content-type: application/json` with it. Fastify's default parser answers that with
+    // "Body cannot be empty"; here an empty body is simply no arguments.
+    app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+      if (typeof body !== 'string' || body.trim() === '') return done(null, {});
+      try {
+        done(null, JSON.parse(body));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    });
+    registerRoutes(app, ctx);
+  });
+}
+
+function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   const opts = { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } };
 
   app.get('/v1/admin/jobs', opts, async (req) => {

@@ -99,6 +99,6 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerTxRoutes(app, ctx);
   registerCardRoutes(app, ctx);
   registerWebhookRoutes(app, ctx);
-  registerAdminRoutes(app, ctx);
+  await registerAdminRoutes(app, ctx);
   return app;
 }
