@@ -21,7 +21,7 @@ Four entry points, one build. The first three must all run:
 | --- | --- | --- |
 | API | `node backend/dist/src/server.js` (default) | the app has no backend |
 | Worker | `node backend/dist/src/worker.js` | the indexer never runs, so buckets published on chain never appear in the app, and no scheduled job (prices, catalog, performance, leaderboard) runs |
-| Keeper | `node backend/dist/src/keeper/main.js` | mint and redeem orders are never filled; a creator's stake sits unfilled until it expires |
+| Keeper | `node backend/dist/src/keeper/main.js` | mint and redeem orders are never filled; a creator's stake sits unfilled until it expires; bucket tokens whose metadata transaction did not land stay unnamed in wallets |
 | Web | `node web/server.js` | no site |
 
 It is one image on purpose. A multi-target Dockerfile is a trap on any platform that builds only the
@@ -137,7 +137,7 @@ base64 -i keys/fee-payer.json    # paste into FEE_PAYER_KEYPAIR
 | Variable | Used by | Needs |
 | --- | --- | --- |
 | `FEE_PAYER_KEYPAIR` | API, keeper | SOL; pays fees for every sponsored transaction |
-| `KEEPER_KEYPAIR` | keeper | SOL; signs fills |
+| `KEEPER_KEYPAIR` | keeper | SOL; signs fills, and the token-metadata backfill every 10 minutes |
 | `PRICE_AUTHORITY_KEYPAIR` | worker | SOL; pushes prices into the program's `Asset` feeds |
 
 A blank value means the process has no such key, which is fine for a read-only API. A malformed one fails at startup naming the variable, never echoing the value.
