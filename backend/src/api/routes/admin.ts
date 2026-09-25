@@ -3,8 +3,9 @@
  *
  *   GET  /v1/admin/jobs         every job the worker knows, with its last run
  *   POST /v1/admin/jobs/:name   run one and return its result
- *   POST /v1/admin/tick         run every job that is due (and one keeper pass with {keeper:true}):
- *                               what a scheduler calls every minute instead of running the worker
+ *   POST /v1/admin/tick         start a pass over every job that is due (one keeper pass too with
+ *                               {keeper:true}); answers 202 at once, 409 while one is running
+ *   GET  /v1/admin/tick         the running or last pass and its report
  *
  * The worker is a separate service and the app is empty until it has run. This is the lever for
  * kicking the catalog or the indexer by hand, and for re-running a job after fixing whatever it
@@ -29,6 +30,16 @@ function requireAdmin(req: FastifyRequest, token: string | undefined): void {
   // Constant-time, and never on buffers of different lengths (timingSafeEqual throws).
   if (a.length !== b.length || !timingSafeEqual(a, b)) throw unauthorized('Invalid admin token');
 }
+
+interface TickRun {
+  startedAt: string;
+  finishedAt: string | null;
+  params: { force?: boolean; jobs?: string[]; keeper?: boolean };
+  report: unknown;
+  error: string | null;
+}
+/** Per process: the tick in flight, or the last one. Ticks are serialised through it. */
+const tick: { current: TickRun | null } = { current: null };
 
 export async function registerAdminRoutes(root: FastifyInstance, ctx: AppContext): Promise<void> {
   // Encapsulated so the lenient parser below applies to these routes only.
@@ -70,7 +81,7 @@ function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
     };
   });
 
-  app.post('/v1/admin/tick', opts, async (req) => {
+  app.post('/v1/admin/tick', opts, async (req, reply) => {
     requireAdmin(req, ctx.cfg.ADMIN_TOKEN);
     const body = parse(
       z.object({
@@ -82,9 +93,34 @@ function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       }),
       req.body ?? {},
     );
-    const jobs = await runDueJobs(ctx.db, { force: body.force, only: body.jobs });
-    const keeper = body.keeper ? await runKeeperOnce(ctx.db) : undefined;
-    return jsonSafe({ ...jobs, keeper });
+    // A tick can run for minutes on a throttled RPC, longer than any proxy keeps a request open,
+    // so it runs in the background and answers at once. One at a time: a second call while a tick
+    // is in flight is refused rather than doubling the work.
+    if (tick.current && !tick.current.finishedAt) {
+      return reply.status(409).send({ running: true, startedAt: tick.current.startedAt, message: 'a tick is already running; GET /v1/admin/tick shows it' });
+    }
+    const run: TickRun = { startedAt: new Date().toISOString(), finishedAt: null, params: body, report: null, error: null };
+    tick.current = run;
+    void (async () => {
+      try {
+        const jobs = await runDueJobs(ctx.db, { force: body.force, only: body.jobs });
+        const keeper = body.keeper ? await runKeeperOnce(ctx.db) : undefined;
+        run.report = jsonSafe({ ...jobs, keeper });
+      } catch (err) {
+        run.error = (err as Error).message;
+      } finally {
+        run.finishedAt = new Date().toISOString();
+        req.log.info({ startedAt: run.startedAt, error: run.error }, 'admin tick finished');
+      }
+    })();
+    return reply.status(202).send({ accepted: true, startedAt: run.startedAt, status: 'GET /v1/admin/tick' });
+  });
+
+  /** The running tick, or the last one this process ran. Every job it ran is also in job_runs. */
+  app.get('/v1/admin/tick', opts, async (req) => {
+    requireAdmin(req, ctx.cfg.ADMIN_TOKEN);
+    const c = tick.current;
+    return c ? { running: !c.finishedAt, ...c } : { running: false, startedAt: null, finishedAt: null, params: null, report: null, error: null };
   });
 
   app.post('/v1/admin/jobs/:name', opts, async (req) => {

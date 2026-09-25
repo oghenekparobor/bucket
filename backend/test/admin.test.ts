@@ -72,14 +72,32 @@ describe('admin job routes', () => {
     expect(res.json()).toMatchObject({ job: 'privy-webhook-prune', ok: true });
   });
 
-  it('tick runs what is due and skips what is not', async () => {
+  it('tick starts in the background, answers at once, and reports through GET', async () => {
+    const post = (payload: object) =>
+      app.inject({ method: 'POST', url: '/v1/admin/tick', headers: { authorization: `Bearer ${TOKEN}` }, payload });
+    const status = async () => (await call('GET', '/v1/admin/tick', TOKEN)).json();
+    const settled = async () => {
+      for (let i = 0; i < 100; i++) {
+        const s = await status();
+        if (!s.running) return s;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      throw new Error('tick did not finish');
+    };
     // Narrowed to a job with no network so the test stays hermetic; the rule is the same for all.
-    const first = await app.inject({ method: 'POST', url: '/v1/admin/tick', headers: { authorization: `Bearer ${TOKEN}` }, payload: { jobs: ['privy-webhook-prune'] } });
-    expect(first.statusCode).toBe(200);
-    // The earlier test already ran it once, so it is not due again for 24 hours.
-    expect(first.json()).toMatchObject({ ran: [], skipped: ['privy-webhook-prune'] });
-    const forced = await app.inject({ method: 'POST', url: '/v1/admin/tick', headers: { authorization: `Bearer ${TOKEN}` }, payload: { jobs: ['privy-webhook-prune'], force: true } });
-    expect(forced.json().ran).toMatchObject([{ name: 'privy-webhook-prune', ok: true, result: { deleted: 0 } }]);
+    const first = await post({ jobs: ['privy-webhook-prune'] });
+    expect(first.statusCode).toBe(202);
+    expect(first.json()).toMatchObject({ accepted: true });
+    let s = await settled();
+    // An earlier test ran this job, so it is not due again for 24 hours.
+    expect(s.report).toMatchObject({ ran: [], skipped: ['privy-webhook-prune'] });
+    expect(s.error).toBeNull();
+
+    const forced = await post({ jobs: ['privy-webhook-prune'], force: true });
+    expect(forced.statusCode).toBe(202);
+    s = await settled();
+    expect(s.report.ran).toMatchObject([{ name: 'privy-webhook-prune', ok: true, result: { deleted: 0 } }]);
+    expect(s.params).toEqual({ jobs: ['privy-webhook-prune'], force: true });
   });
 
   it('list every job the worker knows, with the last run where there is one', async () => {

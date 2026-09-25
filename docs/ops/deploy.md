@@ -134,8 +134,11 @@ curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "content-type: applicati
      -d '{"keeper":true}' https://<api>/v1/admin/tick      # also one keeper pass
 ```
 
-The keeper option needs `KEEPER_KEYPAIR` and `FEE_PAYER_KEYPAIR` on the api service. A tick can take
-a minute (the catalog alone is 10–30 seconds), so give the scheduler a generous timeout.
+The POST answers `202` immediately and runs the pass in the background — a pass can take minutes on
+a throttled RPC, longer than any proxy keeps a request open — and a second POST while one is running
+answers `409` rather than doubling the work. `GET /v1/admin/tick` shows the running or last pass and
+its report; every job it ran is in `job_runs` too, so `/v1/health` reflects it. The keeper option
+needs `KEEPER_KEYPAIR` and `FEE_PAYER_KEYPAIR` on the api service.
 
 What you give up against the services: the indexer runs once a minute instead of every 3 seconds, so
 a published bucket appears within a minute rather than seconds; the keeper fills once a minute
