@@ -7,6 +7,7 @@
 #   worker  node backend/dist/src/worker.js     (or: pnpm --filter @bucket/backend start:worker)
 #   keeper  node backend/dist/src/keeper/main.js
 #   web     node web/server.js                  (or: pnpm --filter @bucket/web start)
+#   tick    node backend/dist/src/tick.js [--keeper]   one pass of what is due, for a cron schedule
 #
 # It is deliberately not split per service. Platforms that build only the last stage of a Dockerfile
 # (Railway) cannot choose a target, so a multi-target file silently ships the wrong image — the web

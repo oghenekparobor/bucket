@@ -3,6 +3,8 @@
  *
  *   GET  /v1/admin/jobs         every job the worker knows, with its last run
  *   POST /v1/admin/jobs/:name   run one and return its result
+ *   POST /v1/admin/tick         run every job that is due (and one keeper pass with {keeper:true}):
+ *                               what a scheduler calls every minute instead of running the worker
  *
  * The worker is a separate service and the app is empty until it has run. This is the lever for
  * kicking the catalog or the indexer by hand, and for re-running a job after fixing whatever it
@@ -13,6 +15,8 @@ import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { JOBS, runJobByName } from '../../jobs/registry.js';
+import { jsonSafe, runDueJobs } from '../../jobs/tick.js';
+import { runKeeperOnce } from '../../keeper/once.js';
 import type { AppContext } from '../app.js';
 import { HttpError, notFound, parse, unauthorized } from '../errors.js';
 
@@ -25,9 +29,6 @@ function requireAdmin(req: FastifyRequest, token: string | undefined): void {
   // Constant-time, and never on buffers of different lengths (timingSafeEqual throws).
   if (a.length !== b.length || !timingSafeEqual(a, b)) throw unauthorized('Invalid admin token');
 }
-
-/** Job results may carry bigints, which JSON cannot; the runner stores them the same way. */
-const jsonSafe = (value: unknown): unknown => JSON.parse(JSON.stringify(value ?? null, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
 export async function registerAdminRoutes(root: FastifyInstance, ctx: AppContext): Promise<void> {
   // Encapsulated so the lenient parser below applies to these routes only.
@@ -67,6 +68,23 @@ function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
         };
       }),
     };
+  });
+
+  app.post('/v1/admin/tick', opts, async (req) => {
+    requireAdmin(req, ctx.cfg.ADMIN_TOKEN);
+    const body = parse(
+      z.object({
+        force: z.boolean().optional(),
+        jobs: z.array(z.string().min(1).max(64)).max(32).optional(),
+        // One keeper pass too. The API then needs KEEPER_KEYPAIR and FEE_PAYER_KEYPAIR; it steps
+        // aside if a long-running keeper holds the lease.
+        keeper: z.boolean().optional(),
+      }),
+      req.body ?? {},
+    );
+    const jobs = await runDueJobs(ctx.db, { force: body.force, only: body.jobs });
+    const keeper = body.keeper ? await runKeeperOnce(ctx.db) : undefined;
+    return jsonSafe({ ...jobs, keeper });
   });
 
   app.post('/v1/admin/jobs/:name', opts, async (req) => {

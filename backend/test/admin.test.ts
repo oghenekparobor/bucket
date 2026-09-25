@@ -72,6 +72,16 @@ describe('admin job routes', () => {
     expect(res.json()).toMatchObject({ job: 'privy-webhook-prune', ok: true });
   });
 
+  it('tick runs what is due and skips what is not', async () => {
+    // Narrowed to a job with no network so the test stays hermetic; the rule is the same for all.
+    const first = await app.inject({ method: 'POST', url: '/v1/admin/tick', headers: { authorization: `Bearer ${TOKEN}` }, payload: { jobs: ['privy-webhook-prune'] } });
+    expect(first.statusCode).toBe(200);
+    // The earlier test already ran it once, so it is not due again for 24 hours.
+    expect(first.json()).toMatchObject({ ran: [], skipped: ['privy-webhook-prune'] });
+    const forced = await app.inject({ method: 'POST', url: '/v1/admin/tick', headers: { authorization: `Bearer ${TOKEN}` }, payload: { jobs: ['privy-webhook-prune'], force: true } });
+    expect(forced.json().ran).toMatchObject([{ name: 'privy-webhook-prune', ok: true, result: { deleted: 0 } }]);
+  });
+
   it('list every job the worker knows, with the last run where there is one', async () => {
     const res = await call('GET', '/v1/admin/jobs', TOKEN);
     expect(res.statusCode).toBe(200);

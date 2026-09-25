@@ -14,6 +14,7 @@
     "start:worker": "node dist/src/worker.js",
     "keeper": "tsx src/keeper/main.ts",
     "start:keeper": "node dist/src/keeper/main.js",
+    "start:tick": "node dist/src/tick.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

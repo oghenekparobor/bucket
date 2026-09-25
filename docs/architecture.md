@@ -148,6 +148,7 @@ JSON conventions as implemented: token amounts (`supply`, `tokens`, `balance`, `
 | GET | `/v1/buckets/:slugOrAddress/token.json` | – | Metaplex off-chain metadata (`name`, `symbol`, `description`, `image`, `external_url`). What the on-chain `uri` points at; served live so a rename needs no chain write |
 | GET | `/v1/admin/jobs` | admin bearer (`ADMIN_TOKEN`) | Every worker job with its last run. 503 until the token is configured |
 | POST | `/v1/admin/jobs/:name` | admin bearer (`ADMIN_TOKEN`) | Runs one worker job now (`catalog`, `indexer`, `prices`, `price-push`, `token-metadata`, ...) and returns its result; recorded in `job_runs` like a scheduled run |
+| POST | `/v1/admin/tick` | admin bearer (`ADMIN_TOKEN`) | Runs every job that is due by the worker's schedule (`{force:true}` runs all, `{jobs:[...]}` narrows, `{keeper:true}` adds one lease-safe keeper pass). What a scheduler calls every minute in place of the worker and keeper services |
 | GET | `/v1/buckets/:slug/chart?period=` | – | `{ points: { t: string, unitPrice: number, hwm: number }[] }` |
 | GET | `/v1/creators/:wallet` | – | `{ creator: CreatorRef, buckets: BucketSummary[], totals }` |
 | GET | `/v1/quote/mint?bucket=&amount=` | – | `{ routes: [{ kind: 'mint' \| 'pool', available, tokensOut, effectivePrice, effectiveVsUnitPct, costUsd }], chosen, feeUsd, rentUsd, legs, unitPrice }` |

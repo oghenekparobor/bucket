@@ -8,8 +8,8 @@ import { config } from './config.js';
 import { migrate } from './db/migrate.js';
 import { createPool } from './db/pool.js';
 import { createIndexer, JOBS, runJobByName } from './jobs/registry.js';
+import { SCHEDULE } from './jobs/schedule.js';
 import { logger } from './logger.js';
-import { HOUR_MS } from './util/time.js';
 
 const log = logger.child({ component: 'worker' });
 const db = createPool();
@@ -26,20 +26,12 @@ interface Scheduled {
 
 const indexer = createIndexer(db);
 
-const tracked = (name: string, everyMs: number): Scheduled => ({ name, everyMs, run: () => runJobByName(db, name), tracked: true });
-const schedule: Scheduled[] = [
-  { name: 'indexer', everyMs: 3_000, run: () => indexer.pollOnce(), tracked: false },
-  tracked('catalog', HOUR_MS),
-  tracked('prices', 5 * 60_000),
-  tracked('price-push', 3 * 60_000),
-  tracked('performance', 10 * 60_000),
-  tracked('leaderboard', HOUR_MS),
-  tracked('pool-monitor', 5 * 60_000),
-  tracked('routing-probe', 24 * HOUR_MS),
-  tracked('deadline-alerts', 24 * HOUR_MS),
-  tracked('privy-webhook-prune', 24 * HOUR_MS),
-  { name: 'notifications', everyMs: 30_000, run: () => JOBS.notifications!(db), tracked: false },
-];
+// The indexer is a live object here (it keeps its RPC connection); everything else runs through the
+// registry. Untracked loops skip job_runs because they fire every few seconds.
+const schedule: Scheduled[] = SCHEDULE.map((j) => ({
+  ...j,
+  run: j.name === 'indexer' ? () => indexer.pollOnce() : j.tracked ? () => runJobByName(db, j.name) : () => JOBS[j.name]!(db),
+}));
 
 const timers: NodeJS.Timeout[] = [];
 for (const job of schedule) {

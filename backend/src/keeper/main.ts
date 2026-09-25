@@ -8,12 +8,11 @@ import { migrate } from '../db/migrate.js';
 import { createPool } from '../db/pool.js';
 import { logger } from '../logger.js';
 import { Keeper } from './keeper.js';
+import { KEEPER_LEASE } from './once.js';
 
 const BALANCE_CHECK_MS = 10 * 60_000;
 /** Metadata backfill: a bucket without it is only unnamed in wallets, so ten minutes is plenty. */
 const METADATA_PASS_MS = 10 * 60_000;
-/** Session advisory lock: one active keeper; standbys wait and take over when its connection drops. */
-const KEEPER_LEASE = 0x6b656570; // 'keep'
 const log = logger.child({ component: 'keeper' });
 const db = createPool();
 await migrate(db);

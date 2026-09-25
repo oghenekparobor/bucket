@@ -109,6 +109,39 @@ it is not a replacement for the worker, which repeats every job on a schedule an
 every 3 seconds. `price-push` signs with the price authority, so it needs `PRICE_AUTHORITY_KEYPAIR`
 on the api service too if you intend to run it here.
 
+## Cron instead of long-running services
+
+The worker and keeper can be replaced by a scheduler that runs one pass a minute. Both entry points
+run exactly what the worker would — the same schedule table decides what is due — and the keeper
+pass takes the keeper lease, so it steps aside if a real keeper is running.
+
+**Railway cron service** (the better fit: no HTTP timeout, and keys stay off the api). Create a
+service from the same image with a cron schedule of `* * * * *` and the start command:
+
+```
+node backend/dist/src/tick.js --keeper
+```
+
+Give it the worker's and keeper's variables (`PRICE_AUTHORITY_KEYPAIR`, `KEEPER_KEYPAIR`,
+`FEE_PAYER_KEYPAIR`, the same `DATABASE_URL` and `RPC_URL`). It exits 1 if a job failed, which the
+schedule's run history shows.
+
+**Any external scheduler that can call a URL** (cron-job.org, a GitHub Actions schedule, crontab):
+
+```bash
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://<api>/v1/admin/tick
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "content-type: application/json" \
+     -d '{"keeper":true}' https://<api>/v1/admin/tick      # also one keeper pass
+```
+
+The keeper option needs `KEEPER_KEYPAIR` and `FEE_PAYER_KEYPAIR` on the api service. A tick can take
+a minute (the catalog alone is 10–30 seconds), so give the scheduler a generous timeout.
+
+What you give up against the services: the indexer runs once a minute instead of every 3 seconds, so
+a published bucket appears within a minute rather than seconds; the keeper fills once a minute
+against orders that live 10 minutes (`order_ttl_secs`), which is fine but not instant; and the
+keeper cannot react to `keeper_nudge`. For anything beyond a handful of buckets, run the services.
+
 ## Database
 
 `DATABASE_URL` is the only thing the backend reads. The `db` service in `docker-compose.yml` is a
